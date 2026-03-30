@@ -1,0 +1,166 @@
+import { z } from "zod";
+
+export const providerSchema = z.enum([
+  "fastmail",
+  "generic-imap",
+  "generic-caldav",
+  "generic-carddav"
+]);
+
+export type ProviderType = z.infer<typeof providerSchema>;
+
+export const trustModeSchema = z.enum(["manual-confirm", "trusted-automation"]);
+export type TrustMode = z.infer<typeof trustModeSchema>;
+
+export const messageCapabilitySchema = z.enum([
+  "mail-read",
+  "mail-write",
+  "calendar-read",
+  "contacts-read"
+]);
+export type Capability = z.infer<typeof messageCapabilitySchema>;
+
+export const automationPolicySchema = z.object({
+  allowSend: z.boolean().default(true),
+  allowMutations: z.boolean().default(true),
+  allowDelete: z.literal(false).default(false)
+});
+export type AutomationPolicy = z.infer<typeof automationPolicySchema>;
+
+export const cacheSettingsSchema = z.object({
+  searchTtlMs: z.number().int().positive().default(60_000),
+  threadTtlMs: z.number().int().positive().default(60_000),
+  eventTtlMs: z.number().int().positive().default(60_000),
+  contactTtlMs: z.number().int().positive().default(60_000)
+});
+export type CacheSettings = z.infer<typeof cacheSettingsSchema>;
+
+export const accountConfigSchema = z.object({
+  id: z.string().min(1),
+  provider: providerSchema,
+  displayName: z.string().min(1),
+  emailAddress: z.email(),
+  capabilities: z.array(messageCapabilitySchema).min(1),
+  trustMode: trustModeSchema.default("manual-confirm"),
+  automationPolicy: automationPolicySchema.default({
+    allowSend: true,
+    allowMutations: true,
+    allowDelete: false
+  }),
+  cache: cacheSettingsSchema.default({
+    searchTtlMs: 60_000,
+    threadTtlMs: 60_000,
+    eventTtlMs: 60_000,
+    contactTtlMs: 60_000
+  }),
+  fastmail: z
+    .object({
+      apiBaseUrl: z.url().default("https://api.fastmail.com"),
+      jmapSessionUrl: z.url().default("https://api.fastmail.com/jmap/session"),
+      caldavUrl: z.url().default("https://caldav.fastmail.com"),
+      carddavUrl: z.url().default("https://carddav.fastmail.com")
+    })
+    .optional()
+});
+export type AccountConfig = z.infer<typeof accountConfigSchema>;
+
+export const configFileSchema = z.object({
+  version: z.literal(1).default(1),
+  accounts: z.array(accountConfigSchema).default([])
+});
+export type ConfigFile = z.infer<typeof configFileSchema>;
+
+export type MessageSummary = {
+  id: string;
+  threadId: string;
+  subject: string;
+  from: string[];
+  to: string[];
+  receivedAt: string;
+  preview: string;
+  keywords: string[];
+  mailboxNames: string[];
+};
+
+export type MessageDetail = MessageSummary & {
+  cc: string[];
+  bcc: string[];
+  textBody: string;
+  htmlBody?: string;
+  references: string[];
+  replyTo?: string[];
+};
+
+export type DraftMessage = {
+  subject: string;
+  to: string[];
+  cc?: string[];
+  bcc?: string[];
+  textBody: string;
+  htmlBody?: string;
+  inReplyTo?: string;
+  references?: string[];
+  threadId?: string;
+};
+
+export type MessageSearchInput = {
+  text?: string;
+  mailbox?: string;
+  from?: string;
+  subject?: string;
+  unread?: boolean;
+  since?: string;
+  until?: string;
+  limit?: number;
+};
+
+export type EventSummary = {
+  id: string;
+  calendarId: string;
+  calendarName: string;
+  title: string;
+  start: string;
+  end: string;
+  location?: string;
+  description?: string;
+};
+
+export type CalendarSummary = {
+  id: string;
+  name: string;
+  description?: string;
+};
+
+export type ContactSummary = {
+  id: string;
+  addressBookId: string;
+  fullName: string;
+  emails: string[];
+  phones: string[];
+  organizations: string[];
+};
+
+export type AddressBookSummary = {
+  id: string;
+  name: string;
+  description?: string;
+};
+
+export type DeleteConfirmation = {
+  token: string;
+  accountId: string;
+  messageIds: string[];
+  expiresAt: string;
+};
+
+export type ToolResult<T> = {
+  accountId: string;
+  provider: ProviderType;
+  data: T;
+  cached?: boolean;
+};
+
+export type AuthMaterial = {
+  username: string;
+  accessToken: string;
+};

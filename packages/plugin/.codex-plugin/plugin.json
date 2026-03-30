@@ -1,0 +1,46 @@
+{
+  "name": "mail-agent",
+  "version": "0.1.0",
+  "description": "Agent-first mail, calendar, and contacts workflows with Fastmail support.",
+  "author": {
+    "name": "iomancer",
+    "email": "support@example.com",
+    "url": "https://github.com/iomancer"
+  },
+  "homepage": "https://github.com/iomancer/mail-agent",
+  "repository": "https://github.com/iomancer/mail-agent",
+  "license": "MIT",
+  "keywords": [
+    "mail",
+    "email",
+    "fastmail",
+    "calendar",
+    "contacts",
+    "codex"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Mail Agent",
+    "shortDescription": "Read and automate Fastmail-first workflows",
+    "longDescription": "Use Mail Agent to search inboxes, summarize threads, draft replies, send email, inspect calendars, and look up contacts through a local Fastmail-first daemon.",
+    "developerName": "iomancer",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/iomancer/mail-agent",
+    "privacyPolicyURL": "https://github.com/iomancer/mail-agent",
+    "termsOfServiceURL": "https://github.com/iomancer/mail-agent",
+    "defaultPrompt": [
+      "Summarize my inbox and draft the reply.",
+      "Review today's calendar and flag conflicts.",
+      "Find the latest thread with a contact."
+    ],
+    "brandColor": "#147a73",
+    "composerIcon": "./assets/mail-agent.svg",
+    "logo": "./assets/mail-agent.svg",
+    "screenshots": []
+  }
+}

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Calendar Brief"
+  short_description: "Summarize upcoming events"
+  icon_small: "./assets/mail-agent.svg"
+  icon_large: "./assets/mail-agent.svg"
+  brand_color: "#147a73"
+  default_prompt: "Use $calendar-brief to summarize the next meetings and flag scheduling conflicts."

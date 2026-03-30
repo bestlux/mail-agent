@@ -1,0 +1,7 @@
+interface:
+  display_name: "Mail Agent Inbox Triage"
+  short_description: "Rank inbox messages by urgency"
+  icon_small: "./assets/mail-agent.svg"
+  icon_large: "./assets/mail-agent.svg"
+  brand_color: "#147a73"
+  default_prompt: "Use $mail-agent-inbox-triage to group inbox messages into urgent, reply soon, waiting, and FYI."

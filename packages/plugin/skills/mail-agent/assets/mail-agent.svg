@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Mail Agent">
+  <rect width="256" height="256" rx="48" fill="#147a73"/>
+  <path d="M48 76h160v104H48z" fill="#f2f7f6"/>
+  <path d="M48 82l80 56 80-56" fill="none" stroke="#147a73" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="188" cy="68" r="28" fill="#0d3d39"/>
+  <path d="M176 68h24M188 56v24" fill="none" stroke="#f2f7f6" stroke-width="10" stroke-linecap="round"/>
+</svg>

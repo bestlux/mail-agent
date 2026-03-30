@@ -1,0 +1,7 @@
+interface:
+  display_name: "Mail Agent"
+  short_description: "Summarize threads and drive trusted mailbox workflows"
+  icon_small: "./assets/mail-agent.svg"
+  icon_large: "./assets/mail-agent.svg"
+  brand_color: "#147a73"
+  default_prompt: "Use $mail-agent to search mail, draft replies, or review calendars and contacts."

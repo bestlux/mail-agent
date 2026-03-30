@@ -1,0 +1,113 @@
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { handlers, toolSchemas } from "./tools.js";
+
+export function createServer(): McpServer {
+  const server = new McpServer({
+    name: "mail-agent",
+    version: "0.1.0"
+  });
+
+  server.registerTool("list_accounts", {
+    title: "List accounts",
+    description: "List configured mail-agent accounts."
+  }, handlers.listAccounts as never);
+
+  server.registerTool("search_messages", {
+    title: "Search messages",
+    description: "Search Fastmail-backed mail by text, mailbox, sender, subject, or date filters.",
+    inputSchema: toolSchemas.searchMessages.shape
+  }, handlers.searchMessages as never);
+
+  server.registerTool("read_message_batch", {
+    title: "Read message batch",
+    description: "Fetch full details for a batch of messages.",
+    inputSchema: toolSchemas.readMessageBatch.shape
+  }, handlers.readMessageBatch as never);
+
+  server.registerTool("read_thread", {
+    title: "Read thread",
+    description: "Fetch all messages from a thread.",
+    inputSchema: toolSchemas.readThread.shape
+  }, handlers.readThread as never);
+
+  server.registerTool("compose_message", {
+    title: "Compose message",
+    description: "Normalize a draft message before send.",
+    inputSchema: toolSchemas.composeMessage.shape
+  }, handlers.composeMessage as never);
+
+  server.registerTool("draft_reply", {
+    title: "Draft reply",
+    description: "Create a reply draft from an existing message.",
+    inputSchema: toolSchemas.draftReply.shape
+  }, handlers.draftReply as never);
+
+  server.registerTool("send_message", {
+    title: "Send message",
+    description: "Send a composed or reply draft through Fastmail JMAP.",
+    inputSchema: toolSchemas.sendMessage.shape
+  }, handlers.sendMessage as never);
+
+  server.registerTool("archive_messages", {
+    title: "Archive messages",
+    description: "Archive messages by removing them from the inbox mailbox.",
+    inputSchema: toolSchemas.archiveMessages.shape
+  }, handlers.archiveMessages as never);
+
+  server.registerTool("move_messages", {
+    title: "Move messages",
+    description: "Move messages into a target mailbox id.",
+    inputSchema: toolSchemas.moveMessages.shape
+  }, handlers.moveMessages as never);
+
+  server.registerTool("tag_messages", {
+    title: "Tag messages",
+    description: "Apply mail-agent keyword tags to messages.",
+    inputSchema: toolSchemas.tagMessages.shape
+  }, handlers.tagMessages as never);
+
+  server.registerTool("mark_messages", {
+    title: "Mark messages",
+    description: "Toggle message keyword flags such as $seen or $flagged.",
+    inputSchema: toolSchemas.markMessages.shape
+  }, handlers.markMessages as never);
+
+  server.registerTool("delete_messages", {
+    title: "Delete messages",
+    description: "Delete messages. This always requires a confirmation token in trusted mode.",
+    inputSchema: toolSchemas.deleteMessages.shape
+  }, handlers.deleteMessages as never);
+
+  server.registerTool("list_calendars", {
+    title: "List calendars",
+    description: "List Fastmail calendars through CalDAV.",
+    inputSchema: toolSchemas.accountOnly.shape
+  }, handlers.listCalendars as never);
+
+  server.registerTool("get_events", {
+    title: "Get events",
+    description: "Read calendar events inside a time range.",
+    inputSchema: toolSchemas.getEvents.shape
+  }, handlers.getEvents as never);
+
+  server.registerTool("search_contacts", {
+    title: "Search contacts",
+    description: "Search contacts through CardDAV.",
+    inputSchema: toolSchemas.searchContacts.shape
+  }, handlers.searchContacts as never);
+
+  server.registerTool("get_contact", {
+    title: "Get contact",
+    description: "Fetch a specific contact or best matching contact.",
+    inputSchema: toolSchemas.getContact.shape
+  }, handlers.getContact as never);
+
+  return server;
+}
+
+export async function runServer(): Promise<void> {
+  const server = createServer();
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}

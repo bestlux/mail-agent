@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "mail-agent": {
+      "command": "node",
+      "args": [
+        "./dist/bin/mail-agent.js",
+        "daemon"
+      ],
+      "note": "Local stdio daemon for Fastmail-first mail, calendar, and contacts workflows."
+    }
+  }
+}

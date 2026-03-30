@@ -1,0 +1,19 @@
+{
+  "name": "mail-agent-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Cross-platform Codex plugin and daemon for Fastmail-first agent workflows.",
+  "license": "MIT",
+  "packageManager": "pnpm@10.29.3",
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=10.29.3"
+  },
+  "scripts": {
+    "build": "corepack pnpm -r build",
+    "clean": "corepack pnpm -r clean",
+    "lint": "corepack pnpm -r typecheck",
+    "test": "corepack pnpm -r test",
+    "typecheck": "corepack pnpm -r typecheck"
+  }
+}
