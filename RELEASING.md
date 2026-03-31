@@ -3,8 +3,8 @@
 This workspace publishes three packages together:
 
 - `mail-agent`
-- `@mail-agent/daemon`
-- `@mail-agent/shared`
+- `@iomancer/mail-agent-daemon`
+- `@iomancer/mail-agent-shared`
 
 `mail-agent` is the public entrypoint. The scoped packages are internal support packages that get published because the CLI depends on them.
 
@@ -30,8 +30,8 @@ You have two practical options:
 After the packages exist on npm, set up npm trusted publishers for all three packages:
 
 - `mail-agent`
-- `@mail-agent/daemon`
-- `@mail-agent/shared`
+- `@iomancer/mail-agent-daemon`
+- `@iomancer/mail-agent-shared`
 
 Point each one at:
 

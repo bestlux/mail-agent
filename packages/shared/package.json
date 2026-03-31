@@ -1,5 +1,5 @@
 {
-  "name": "@mail-agent/shared",
+  "name": "@iomancer/mail-agent-shared",
   "version": "0.1.0",
   "description": "Shared runtime, config, policy, and secret-handling utilities for Mail Agent.",
   "type": "module",

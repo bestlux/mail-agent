@@ -27,8 +27,8 @@
     "access": "public"
   },
   "dependencies": {
-    "@mail-agent/daemon": "workspace:*",
-    "@mail-agent/shared": "workspace:*",
+    "@iomancer/mail-agent-daemon": "workspace:*",
+    "@iomancer/mail-agent-shared": "workspace:*",
     "commander": "14.0.3"
   },
   "devDependencies": {

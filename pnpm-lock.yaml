@@ -10,7 +10,7 @@ importers:
 
   packages/daemon:
     dependencies:
-      '@mail-agent/shared':
+      '@iomancer/mail-agent-shared':
         specifier: workspace:*
         version: link:../shared
       '@modelcontextprotocol/sdk':
@@ -35,10 +35,10 @@ importers:
 
   packages/plugin:
     dependencies:
-      '@mail-agent/daemon':
+      '@iomancer/mail-agent-daemon':
         specifier: workspace:*
         version: link:../daemon
-      '@mail-agent/shared':
+      '@iomancer/mail-agent-shared':
         specifier: workspace:*
         version: link:../shared
       commander:

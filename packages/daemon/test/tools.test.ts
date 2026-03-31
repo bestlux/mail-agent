@@ -14,7 +14,7 @@ class MockFileCache {
   }
 }
 
-vi.mock("@mail-agent/shared", () => ({
+vi.mock("@iomancer/mail-agent-shared", () => ({
   FileCache: MockFileCache,
   assertMutationAllowed: vi.fn(),
   assertSendAllowed: vi.fn(),

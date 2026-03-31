@@ -7,7 +7,7 @@ import type {
   MessageSearchInput,
   MessageSearchResult,
   MessageSummary
-} from "@mail-agent/shared";
+} from "@iomancer/mail-agent-shared";
 import { FastmailJmapClient } from "./jmap-client.js";
 
 type MailboxInfo = {

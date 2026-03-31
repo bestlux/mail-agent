@@ -7,7 +7,7 @@ import type {
   MessageSearchResult,
   MessageSummary,
   OAuthAuthMaterial
-} from "@mail-agent/shared";
+} from "@iomancer/mail-agent-shared";
 import { GoogleApiClient } from "./client.js";
 
 type GmailLabel = {

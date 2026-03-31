@@ -11,8 +11,8 @@ Right now the repo supports Fastmail and Google. Fastmail uses native protocol a
 The repo ships three coordinated pieces:
 
 - `mail-agent`: the public CLI and Codex plugin bundle
-- `@mail-agent/daemon`: the local MCP daemon that exposes structured tools
-- `@mail-agent/shared`: shared runtime, config, policy, and secret-store logic
+- `@iomancer/mail-agent-daemon`: the local MCP daemon that exposes structured tools
+- `@iomancer/mail-agent-shared`: shared runtime, config, policy, and secret-store logic
 
 Most people only care about `mail-agent`. The other two packages exist so the plugin can stay cleanly split between CLI, daemon, and shared runtime code.
 
@@ -184,7 +184,7 @@ node packages/plugin/dist/bin/mail-agent.js doctor
 
 The public package name is `mail-agent`.
 
-The repo still publishes `@mail-agent/daemon` and `@mail-agent/shared` alongside it because the CLI is split into a public plugin package plus two internal support packages. Most users should ignore that and just install `mail-agent`.
+The repo still publishes `@iomancer/mail-agent-daemon` and `@iomancer/mail-agent-shared` alongside it because the CLI is split into a public plugin package plus two internal support packages. Most users should ignore that and just install `mail-agent`.
 
 Once the first npm release is live, the normal install paths will be:
 

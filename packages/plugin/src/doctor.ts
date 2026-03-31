@@ -1,4 +1,4 @@
-import { getConfigPath, getRuntimeDir, getSecretStore, isOAuthAuthMaterial, loadConfig } from "@mail-agent/shared";
+import { getConfigPath, getRuntimeDir, getSecretStore, isOAuthAuthMaterial, loadConfig } from "@iomancer/mail-agent-shared";
 
 export async function runDoctor(): Promise<{
   nodeVersion: string;

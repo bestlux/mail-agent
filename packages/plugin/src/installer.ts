@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { getMarketplaceRoot, getPluginInstallRoot } from "@mail-agent/shared";
+import { getMarketplaceRoot, getPluginInstallRoot } from "@iomancer/mail-agent-shared";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(__dirname, "..");

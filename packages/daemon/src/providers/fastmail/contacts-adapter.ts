@@ -1,4 +1,4 @@
-import type { AccountConfig, AddressBookSummary, ContactSummary, FastmailAuthMaterial } from "@mail-agent/shared";
+import type { AccountConfig, AddressBookSummary, ContactSummary, FastmailAuthMaterial } from "@iomancer/mail-agent-shared";
 import { FastmailDavClient } from "./dav-client.js";
 
 function asString(value: unknown): string | undefined {

@@ -1,4 +1,4 @@
-import type { AccountConfig, AddressBookSummary, ContactSummary, OAuthAuthMaterial } from "@mail-agent/shared";
+import type { AccountConfig, AddressBookSummary, ContactSummary, OAuthAuthMaterial } from "@iomancer/mail-agent-shared";
 import { GoogleApiClient } from "./client.js";
 
 type GooglePerson = {

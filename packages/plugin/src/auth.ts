@@ -1,6 +1,6 @@
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-import { upsertAccount, getSecretStore, removeAccount, type AccountConfig } from "@mail-agent/shared";
+import { upsertAccount, getSecretStore, removeAccount, type AccountConfig } from "@iomancer/mail-agent-shared";
 import { runLoopbackOAuth } from "./oauth.js";
 
 type FastmailAuthOptions = {

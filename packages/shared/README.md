@@ -1,4 +1,4 @@
-# @mail-agent/shared
+# @iomancer/mail-agent-shared
 
 Internal support package for [`mail-agent`](https://github.com/bestlux/mail-agent).
 

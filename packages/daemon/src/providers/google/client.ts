@@ -1,4 +1,4 @@
-import { getSecretStore, type AccountConfig, type OAuthAuthMaterial } from "@mail-agent/shared";
+import { getSecretStore, type AccountConfig, type OAuthAuthMaterial } from "@iomancer/mail-agent-shared";
 
 function ensureTrailingSlash(value: string): string {
   return value.endsWith("/") ? value : `${value}/`;

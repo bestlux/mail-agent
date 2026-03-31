@@ -5,7 +5,7 @@ import {
   type AccountConfig,
   type ProviderBundle,
   getSecretStore
-} from "@mail-agent/shared";
+} from "@iomancer/mail-agent-shared";
 import { FastmailCalendarAdapter } from "./fastmail/calendar-adapter.js";
 import { FastmailContactsAdapter } from "./fastmail/contacts-adapter.js";
 import { FastmailMailAdapter } from "./fastmail/mail-adapter.js";

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { runServer } from "@mail-agent/daemon";
+import { runServer } from "@iomancer/mail-agent-daemon";
 import { authFastmail, authGoogle, logoutAccount } from "../auth.js";
 import { runDoctor } from "../doctor.js";
 import { installPluginBundle } from "../installer.js";

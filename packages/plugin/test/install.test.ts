@@ -4,8 +4,8 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const tempHome = path.join(os.tmpdir(), "mail-agent-install-test");
-vi.mock("@mail-agent/shared", async () => {
-  const actual = await vi.importActual<typeof import("@mail-agent/shared")>("@mail-agent/shared");
+vi.mock("@iomancer/mail-agent-shared", async () => {
+  const actual = await vi.importActual<typeof import("@iomancer/mail-agent-shared")>("@iomancer/mail-agent-shared");
   return {
     ...actual,
     getMarketplaceRoot: () => path.join(tempHome, ".agents"),

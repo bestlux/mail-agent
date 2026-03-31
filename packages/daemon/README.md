@@ -1,4 +1,4 @@
-# @mail-agent/daemon
+# @iomancer/mail-agent-daemon
 
 Internal support package for [`mail-agent`](https://github.com/bestlux/mail-agent).
 

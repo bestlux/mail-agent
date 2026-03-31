@@ -1,4 +1,4 @@
-import { AuthError } from "@mail-agent/shared";
+import { AuthError } from "@iomancer/mail-agent-shared";
 
 const MAIL_CAPABILITY = "urn:ietf:params:jmap:mail";
 const SUBMISSION_CAPABILITY = "urn:ietf:params:jmap:submission";

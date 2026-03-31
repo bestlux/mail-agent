@@ -12,7 +12,7 @@ import {
   type DraftMessage,
   type MessageSearchInput,
   type ToolResult
-} from "@mail-agent/shared";
+} from "@iomancer/mail-agent-shared";
 import { createProviderBundle } from "./providers/factory.js";
 
 const cache = new FileCache();

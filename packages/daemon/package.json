@@ -1,5 +1,5 @@
 {
-  "name": "@mail-agent/daemon",
+  "name": "@iomancer/mail-agent-daemon",
   "version": "0.1.0",
   "description": "Local MCP daemon for Mail Agent mailbox, calendar, and contacts workflows.",
   "type": "module",
@@ -28,7 +28,7 @@
     "url": "https://github.com/bestlux/mail-agent/issues"
   },
   "dependencies": {
-    "@mail-agent/shared": "workspace:*",
+    "@iomancer/mail-agent-shared": "workspace:*",
     "@modelcontextprotocol/sdk": "1.28.0",
     "fast-xml-parser": "5.5.9",
     "zod": "4.3.6"

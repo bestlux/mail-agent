@@ -1,4 +1,4 @@
-import type { AccountConfig, CalendarSummary, EventSummary, OAuthAuthMaterial } from "@mail-agent/shared";
+import type { AccountConfig, CalendarSummary, EventSummary, OAuthAuthMaterial } from "@iomancer/mail-agent-shared";
 import { GoogleApiClient } from "./client.js";
 
 type GoogleCalendarListResponse = {
