@@ -1,7 +1,7 @@
 {
   "name": "mail-agent",
   "version": "0.1.0",
-  "description": "Agent-first mail, calendar, and contacts workflows with Fastmail support.",
+  "description": "Agent-first mail, calendar, and contacts workflows with Fastmail and Google support.",
   "author": {
     "name": "bestlux",
     "url": "https://github.com/bestlux"
@@ -13,6 +13,8 @@
     "mail",
     "email",
     "fastmail",
+    "gmail",
+    "google",
     "calendar",
     "contacts",
     "codex"
@@ -21,8 +23,8 @@
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Mail Agent",
-    "shortDescription": "Read and automate Fastmail-first workflows",
-    "longDescription": "Use Mail Agent to search inboxes, summarize threads, draft replies, send email, inspect calendars, and look up contacts through a local Fastmail-first daemon.",
+    "shortDescription": "Read and automate provider-native mail workflows",
+    "longDescription": "Use Mail Agent to search inboxes, summarize threads, draft replies, send email, inspect calendars, and look up contacts through a local provider-native daemon for Fastmail and Google.",
     "developerName": "bestlux",
     "category": "Productivity",
     "capabilities": [

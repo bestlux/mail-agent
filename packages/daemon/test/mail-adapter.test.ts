@@ -91,6 +91,7 @@ describe("FastmailMailAdapter", () => {
       });
 
     const adapter = new FastmailMailAdapter(account, {
+      kind: "fastmail-basic",
       username: "user@example.com",
       jmapAccessToken: "token",
       davPassword: "app-password"
@@ -135,6 +136,7 @@ describe("FastmailMailAdapter", () => {
       });
 
     const adapter = new FastmailMailAdapter(account, {
+      kind: "fastmail-basic",
       username: "user@example.com",
       jmapAccessToken: "token",
       davPassword: "app-password"
@@ -240,6 +242,7 @@ describe("FastmailMailAdapter", () => {
       });
 
     const adapter = new FastmailMailAdapter(account, {
+      kind: "fastmail-basic",
       username: "user@example.com",
       jmapAccessToken: "token",
       davPassword: "app-password"
@@ -303,6 +306,7 @@ describe("FastmailMailAdapter", () => {
       });
 
     const adapter = new FastmailMailAdapter(account, {
+      kind: "fastmail-basic",
       username: "user@example.com",
       jmapAccessToken: "token",
       davPassword: "app-password"
@@ -354,6 +358,7 @@ describe("FastmailMailAdapter", () => {
       });
 
     const adapter = new FastmailMailAdapter(account, {
+      kind: "fastmail-basic",
       username: "user@example.com",
       jmapAccessToken: "token",
       davPassword: "app-password"

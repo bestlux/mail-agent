@@ -100,6 +100,7 @@ describe("DAV adapters", () => {
     });
 
     const adapter = new FastmailCalendarAdapter(account, {
+      kind: "fastmail-basic",
       username: "user@example.com",
       jmapAccessToken: "jmap-token",
       davPassword: "app-password"
@@ -192,6 +193,7 @@ END:VCARD</card:address-data>
       });
 
     const adapter = new FastmailContactsAdapter(account, {
+      kind: "fastmail-basic",
       username: "user@example.com",
       jmapAccessToken: "jmap-token",
       davPassword: "app-password"
@@ -284,6 +286,7 @@ END:VCARD</card:address-data>
       });
 
     const adapter = new FastmailContactsAdapter(account, {
+      kind: "fastmail-basic",
       username: "user@example.com",
       jmapAccessToken: "jmap-token",
       davPassword: "app-password"
@@ -390,6 +393,7 @@ END:VCALENDAR</c:calendar-data>
       });
 
     const adapter = new FastmailCalendarAdapter(account, {
+      kind: "fastmail-basic",
       username: "user@example.com",
       jmapAccessToken: "jmap-token",
       davPassword: "app-password"

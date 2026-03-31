@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { AuthError } from "./errors.js";
 import { getRuntimeDir } from "./runtime.js";
-import type { AuthMaterial } from "./types.js";
+import type { AuthMaterial, FastmailAuthMaterial, OAuthAuthMaterial } from "./types.js";
 
 const SERVICE = "mail-agent";
 
@@ -43,25 +43,22 @@ class FileSecretStore implements SecretStore {
       throw new AuthError(`No credentials stored for account: ${accountId}`);
     }
 
-    if (
-      "jmapAccessToken" in secret &&
-      typeof secret.jmapAccessToken === "string" &&
-      "davPassword" in secret &&
-      typeof secret.davPassword === "string"
-    ) {
-      return {
-        username: secret.username,
-        jmapAccessToken: secret.jmapAccessToken,
-        davPassword: secret.davPassword
-      };
+    if ("kind" in secret && secret.kind === "oauth" && typeof secret.accessToken === "string" && typeof secret.refreshToken === "string") {
+      return secret as OAuthAuthMaterial;
+    }
+
+    if ("kind" in secret && secret.kind === "fastmail-basic" && typeof secret.jmapAccessToken === "string" && typeof secret.davPassword === "string") {
+      return secret as FastmailAuthMaterial;
     }
 
     if ("accessToken" in secret) {
+      const username = "username" in secret && typeof secret.username === "string" ? secret.username : accountId;
       return {
-        username: secret.username,
+        kind: "fastmail-basic",
+        username,
         jmapAccessToken: secret.accessToken,
         davPassword: secret.accessToken
-      };
+      } satisfies FastmailAuthMaterial;
     }
 
     throw new AuthError(`Stored credentials for account ${accountId} are incomplete.`);
@@ -85,19 +82,39 @@ class KeytarSecretStore implements SecretStore {
 
   async save(accountId: string, material: AuthMaterial): Promise<void> {
     const keytar = await this.loadKeytar();
-    await keytar.setPassword(SERVICE, `${accountId}:username`, material.username);
-    await keytar.setPassword(SERVICE, `${accountId}:jmap-token`, material.jmapAccessToken);
-    await keytar.setPassword(SERVICE, `${accountId}:dav-password`, material.davPassword);
+    await keytar.setPassword(SERVICE, `${accountId}:json`, JSON.stringify(material));
+
+    if (material.kind === "fastmail-basic") {
+      await keytar.setPassword(SERVICE, `${accountId}:username`, material.username);
+      await keytar.setPassword(SERVICE, `${accountId}:jmap-token`, material.jmapAccessToken);
+      await keytar.setPassword(SERVICE, `${accountId}:dav-password`, material.davPassword);
+      return;
+    }
+
+    await Promise.all([
+      keytar.deletePassword(SERVICE, `${accountId}:username`),
+      keytar.deletePassword(SERVICE, `${accountId}:jmap-token`),
+      keytar.deletePassword(SERVICE, `${accountId}:dav-password`),
+      keytar.deletePassword(SERVICE, `${accountId}:token`)
+    ]);
   }
 
   async load(accountId: string): Promise<AuthMaterial> {
     const keytar = await this.loadKeytar();
-    const [username, jmapAccessToken, davPassword, legacyToken] = await Promise.all([
+    const [jsonBlob, username, jmapAccessToken, davPassword, legacyToken] = await Promise.all([
+      keytar.getPassword(SERVICE, `${accountId}:json`),
       keytar.getPassword(SERVICE, `${accountId}:username`),
       keytar.getPassword(SERVICE, `${accountId}:jmap-token`),
       keytar.getPassword(SERVICE, `${accountId}:dav-password`),
       keytar.getPassword(SERVICE, `${accountId}:token`)
     ]);
+
+    if (jsonBlob) {
+      const parsed = JSON.parse(jsonBlob) as AuthMaterial;
+      if (parsed.kind === "oauth" || parsed.kind === "fastmail-basic") {
+        return parsed;
+      }
+    }
 
     const resolvedJmap = jmapAccessToken ?? legacyToken;
     const resolvedDav = davPassword ?? legacyToken;
@@ -106,12 +123,18 @@ class KeytarSecretStore implements SecretStore {
       throw new AuthError(`No credentials stored for account: ${accountId}`);
     }
 
-    return { username, jmapAccessToken: resolvedJmap, davPassword: resolvedDav };
+    return {
+      kind: "fastmail-basic",
+      username,
+      jmapAccessToken: resolvedJmap,
+      davPassword: resolvedDav
+    } satisfies FastmailAuthMaterial;
   }
 
   async remove(accountId: string): Promise<void> {
     const keytar = await this.loadKeytar();
     await Promise.all([
+      keytar.deletePassword(SERVICE, `${accountId}:json`),
       keytar.deletePassword(SERVICE, `${accountId}:username`),
       keytar.deletePassword(SERVICE, `${accountId}:jmap-token`),
       keytar.deletePassword(SERVICE, `${accountId}:dav-password`),

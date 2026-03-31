@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { runServer } from "@mail-agent/daemon";
-import { authFastmail, logoutAccount } from "../auth.js";
+import { authFastmail, authGoogle, logoutAccount } from "../auth.js";
 import { runDoctor } from "../doctor.js";
 import { installPluginBundle } from "../installer.js";
 
 const program = new Command();
 program
   .name("mail-agent")
-  .description("Fastmail-first Codex plugin bundle for agent workflows.")
+  .description("Provider-native Codex plugin bundle for agent workflows.")
   .version("0.1.0");
 
 program
@@ -43,6 +43,37 @@ auth
       username: options.username,
       jmapToken: options.jmapToken,
       appPassword: options.appPassword,
+      displayName: options.name
+    });
+    console.log(JSON.stringify(account, null, 2));
+  });
+
+auth
+  .command("google")
+  .description("Authenticate Google mail, calendar, and contacts through OAuth.")
+  .requiredOption("--account <id>", "Account id")
+  .option("--email <email>", "Email hint for the Google account chooser")
+  .option("--client-id <clientId>", "Google OAuth desktop client id")
+  .option("--client-secret <clientSecret>", "Google OAuth desktop client secret")
+  .option("--redirect-host <host>", "Loopback host to bind during OAuth", "127.0.0.1")
+  .option("--redirect-port <port>", "Loopback port to bind during OAuth", (value) => Number.parseInt(value, 10))
+  .option("--name <displayName>", "Display name")
+  .action(async (options: {
+    account: string;
+    email?: string;
+    clientId?: string;
+    clientSecret?: string;
+    redirectHost?: string;
+    redirectPort?: number;
+    name?: string;
+  }) => {
+    const account = await authGoogle({
+      accountId: options.account,
+      email: options.email,
+      clientId: options.clientId,
+      clientSecret: options.clientSecret,
+      redirectHost: options.redirectHost,
+      redirectPort: options.redirectPort,
       displayName: options.name
     });
     console.log(JSON.stringify(account, null, 2));

@@ -21,7 +21,7 @@ export function createServer(): McpServer {
 
   server.registerTool("search_messages", {
     title: "Search messages",
-    description: "Search Fastmail-backed mail with pagination, thread collapsing, mailbox filters, and date filters.",
+    description: "Search provider-backed mail with pagination, thread collapsing, mailbox filters, and date filters.",
     inputSchema: toolSchemas.searchMessages.shape
   }, handlers.searchMessages as never);
 
@@ -51,7 +51,7 @@ export function createServer(): McpServer {
 
   server.registerTool("send_message", {
     title: "Send message",
-    description: "Send a composed or reply draft through Fastmail JMAP.",
+    description: "Send a composed or reply draft through the configured provider.",
     inputSchema: toolSchemas.sendMessage.shape
   }, handlers.sendMessage as never);
 
@@ -87,7 +87,7 @@ export function createServer(): McpServer {
 
   server.registerTool("list_calendars", {
     title: "List calendars",
-    description: "List Fastmail calendars through CalDAV.",
+    description: "List calendars for the configured account.",
     inputSchema: toolSchemas.accountOnly.shape
   }, handlers.listCalendars as never);
 
@@ -99,7 +99,7 @@ export function createServer(): McpServer {
 
   server.registerTool("search_contacts", {
     title: "Search contacts",
-    description: "Search contacts through CardDAV.",
+    description: "Search contacts for the configured account.",
     inputSchema: toolSchemas.searchContacts.shape
   }, handlers.searchContacts as never);
 

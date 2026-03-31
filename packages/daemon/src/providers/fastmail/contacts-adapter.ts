@@ -1,5 +1,4 @@
-import type { AccountConfig, AddressBookSummary, ContactSummary } from "@mail-agent/shared";
-import type { AuthMaterial } from "@mail-agent/shared";
+import type { AccountConfig, AddressBookSummary, ContactSummary, FastmailAuthMaterial } from "@mail-agent/shared";
 import { FastmailDavClient } from "./dav-client.js";
 
 function asString(value: unknown): string | undefined {
@@ -35,7 +34,7 @@ function parseVcard(addressBookId: string, href: string, vcard: string): Contact
 export class FastmailContactsAdapter {
   private readonly client: FastmailDavClient;
 
-  constructor(account: AccountConfig, auth: AuthMaterial) {
+  constructor(account: AccountConfig, auth: FastmailAuthMaterial) {
     this.client = new FastmailDavClient(account.fastmail?.carddavUrl ?? "https://carddav.fastmail.com", {
       username: auth.username,
       password: auth.davPassword

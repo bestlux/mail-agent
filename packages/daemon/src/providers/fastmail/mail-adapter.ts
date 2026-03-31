@@ -1,13 +1,13 @@
 import type {
   AccountConfig,
   DraftMessage,
+  FastmailAuthMaterial,
   MailboxSummary,
   MessageDetail,
   MessageSearchInput,
   MessageSearchResult,
   MessageSummary
 } from "@mail-agent/shared";
-import { type AuthMaterial } from "@mail-agent/shared";
 import { FastmailJmapClient } from "./jmap-client.js";
 
 type MailboxInfo = {
@@ -202,7 +202,7 @@ export class FastmailMailAdapter {
 
   constructor(
     private readonly account: AccountConfig,
-    auth: AuthMaterial
+    auth: FastmailAuthMaterial
   ) {
     this.client = new FastmailJmapClient(
       account.fastmail?.jmapSessionUrl ?? "https://api.fastmail.com/jmap/session",

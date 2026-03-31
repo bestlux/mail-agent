@@ -1,5 +1,4 @@
-import type { AccountConfig, CalendarSummary, EventSummary } from "@mail-agent/shared";
-import type { AuthMaterial } from "@mail-agent/shared";
+import type { AccountConfig, CalendarSummary, EventSummary, FastmailAuthMaterial } from "@mail-agent/shared";
 import { FastmailDavClient } from "./dav-client.js";
 
 function asString(value: unknown): string | undefined {
@@ -43,7 +42,7 @@ function parseIcsEvents(calendarId: string, calendarName: string, ics: string): 
 export class FastmailCalendarAdapter {
   private readonly client: FastmailDavClient;
 
-  constructor(account: AccountConfig, auth: AuthMaterial) {
+  constructor(account: AccountConfig, auth: FastmailAuthMaterial) {
     this.client = new FastmailDavClient(account.fastmail?.caldavUrl ?? "https://caldav.fastmail.com", {
       username: auth.username,
       password: auth.davPassword

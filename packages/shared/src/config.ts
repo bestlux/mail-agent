@@ -65,6 +65,7 @@ export async function patchAccount(update: z.input<typeof accountUpdateSchema>):
     ...existing,
     ...parsed,
     fastmail: parsed.fastmail ? { ...existing.fastmail, ...parsed.fastmail } : existing.fastmail,
+    google: parsed.google ? { ...existing.google, ...parsed.google } : existing.google,
     automationPolicy: parsed.automationPolicy ? { ...existing.automationPolicy, ...parsed.automationPolicy } : existing.automationPolicy,
     cache: parsed.cache ? { ...existing.cache, ...parsed.cache } : existing.cache
   });

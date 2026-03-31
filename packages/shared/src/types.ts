@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export const providerSchema = z.enum([
   "fastmail",
+  "google-workspace",
+  "microsoft-graph",
   "generic-imap",
   "generic-caldav",
   "generic-carddav"
@@ -59,6 +61,23 @@ export const accountConfigSchema = z.object({
       jmapSessionUrl: z.url().default("https://api.fastmail.com/jmap/session"),
       caldavUrl: z.url().default("https://caldav.fastmail.com"),
       carddavUrl: z.url().default("https://carddav.fastmail.com")
+    })
+    .optional(),
+  google: z
+    .object({
+      authorizationUrl: z.url().default("https://accounts.google.com/o/oauth2/v2/auth"),
+      tokenUrl: z.url().default("https://oauth2.googleapis.com/token"),
+      revokeUrl: z.url().default("https://oauth2.googleapis.com/revoke"),
+      gmailBaseUrl: z.url().default("https://gmail.googleapis.com/gmail/v1"),
+      calendarBaseUrl: z.url().default("https://www.googleapis.com/calendar/v3"),
+      peopleBaseUrl: z.url().default("https://people.googleapis.com/v1"),
+      redirectHost: z.string().default("127.0.0.1"),
+      redirectPort: z.number().int().min(1).max(65535).optional(),
+      scopes: z.array(z.string()).min(1).default([
+        "https://www.googleapis.com/auth/gmail.modify",
+        "https://www.googleapis.com/auth/calendar.readonly",
+        "https://www.googleapis.com/auth/contacts.readonly"
+      ])
     })
     .optional()
 });
@@ -179,8 +198,27 @@ export type ToolResult<T> = {
   cached?: boolean;
 };
 
-export type AuthMaterial = {
+export type FastmailAuthMaterial = {
+  kind: "fastmail-basic";
   username: string;
   jmapAccessToken: string;
   davPassword: string;
 };
+
+export type OAuthAuthMaterial = {
+  kind: "oauth";
+  accessToken: string;
+  refreshToken: string;
+  expiresAt?: string;
+  scopes: string[];
+  tokenType?: string;
+  clientId: string;
+  clientSecret?: string;
+  authorizationUrl: string;
+  tokenUrl: string;
+  revokeUrl?: string;
+  redirectUri: string;
+  accountHint?: string;
+};
+
+export type AuthMaterial = FastmailAuthMaterial | OAuthAuthMaterial;
