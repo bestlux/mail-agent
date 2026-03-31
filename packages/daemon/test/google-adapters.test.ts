@@ -57,28 +57,108 @@ describe("Google adapters", () => {
     fetchMock.mockReset();
   });
 
-  it("searches Gmail messages and maps system labels to mailbox names", async () => {
+  it("searches Gmail messages and paginates beyond 100 refs", async () => {
+    fetchMock.mockImplementation(async (input: string | URL) => {
+      const url = String(input);
+
+      if (url.includes("/users/me/messages?")) {
+        const parsed = new URL(url);
+        const pageToken = parsed.searchParams.get("pageToken");
+        if (pageToken === "page-2") {
+          return {
+            ok: true,
+            json: async () => ({
+              messages: Array.from({ length: 50 }, (_, index) => ({ id: `m${101 + index}`, threadId: `t${101 + index}` })),
+              resultSizeEstimate: 150
+            })
+          };
+        }
+
+        return {
+          ok: true,
+          json: async () => ({
+            messages: Array.from({ length: 100 }, (_, index) => ({ id: `m${index + 1}`, threadId: `t${index + 1}` })),
+            nextPageToken: "page-2",
+            resultSizeEstimate: 150
+          })
+        };
+      }
+
+      if (url.includes("/users/me/messages/m")) {
+        const id = url.match(/messages\/(m\d+)/)?.[1] ?? "m0";
+        return {
+          ok: true,
+          json: async () => ({
+            id,
+            threadId: `t${id.slice(1)}`,
+            labelIds: ["INBOX", "STARRED", "CATEGORY_UPDATES"],
+            snippet: `Preview ${id}`,
+            internalDate: `${Date.parse("2026-03-31T00:00:00Z") + Number(id.slice(1))}`,
+            payload: {
+              headers: [
+                { name: "Subject", value: `Hello ${id}` },
+                { name: "From", value: "sender@example.com" },
+                { name: "To", value: "user@gmail.com" }
+              ],
+              parts: [
+                {
+                  mimeType: "text/plain",
+                  body: {
+                    data: Buffer.from(`Hello world ${id}`, "utf8").toString("base64url")
+                  }
+                }
+              ]
+            }
+          })
+        };
+      }
+
+      if (url.endsWith("/users/me/labels")) {
+        return {
+          ok: true,
+          json: async () => ({
+            labels: [
+              { id: "INBOX", name: "INBOX", type: "system" },
+              { id: "STARRED", name: "STARRED", type: "system" },
+              { id: "CATEGORY_UPDATES", name: "CATEGORY_UPDATES", type: "system" }
+            ]
+          })
+        };
+      }
+
+      throw new Error(`Unexpected fetch URL in pagination test: ${url}`);
+    });
+
+    const adapter = new GoogleMailAdapter(account, auth);
+    const result = await adapter.searchMessages({ text: "hello", limit: 150 });
+
+    expect(result.messages).toHaveLength(150);
+    expect(result.messages[0]?.subject).toBe("Hello m1");
+    expect(result.messages[149]?.subject).toBe("Hello m150");
+    expect(result.messages[0]?.mailboxNames).toContain("Inbox");
+    expect(result.messages[0]?.mailboxNames).toContain("Updates");
+    expect(result.messages[0]?.keywords).toContain("$flagged");
+    expect(result.total).toBe(150);
+    expect(result.nextPosition).toBeUndefined();
+  });
+
+  it("drafts replies using the current Message-ID and complete references chain", async () => {
     fetchMock
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          messages: [{ id: "m1", threadId: "t1" }],
-          resultSizeEstimate: 1
-        })
-      })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           id: "m1",
           threadId: "t1",
-          labelIds: ["INBOX", "STARRED"],
+          labelIds: ["INBOX"],
           snippet: "Preview",
           internalDate: `${Date.parse("2026-03-31T00:00:00Z")}`,
           payload: {
             headers: [
               { name: "Subject", value: "Hello" },
               { name: "From", value: "sender@example.com" },
-              { name: "To", value: "user@gmail.com" }
+              { name: "To", value: "user@gmail.com" },
+              { name: "Message-ID", value: "<current@example.com>" },
+              { name: "References", value: "<root@example.com>" }
             ],
             parts: [
               {
@@ -94,20 +174,134 @@ describe("Google adapters", () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          labels: [
-            { id: "INBOX", name: "INBOX", type: "system" },
-            { id: "STARRED", name: "STARRED", type: "system" }
-          ]
+          labels: [{ id: "INBOX", name: "INBOX", type: "system" }]
         })
-      });
+      })
+    ;
 
     const adapter = new GoogleMailAdapter(account, auth);
-    const result = await adapter.searchMessages({ text: "hello" });
+    const draft = await adapter.draftReply("m1", "Thanks.");
 
-    expect(result.messages[0]?.subject).toBe("Hello");
-    expect(result.messages[0]?.mailboxNames).toContain("Inbox");
-    expect(result.messages[0]?.keywords).toContain("$flagged");
+    expect(draft.inReplyTo).toBe("<current@example.com>");
+    expect(draft.references).toEqual(["<root@example.com>", "<current@example.com>"]);
+    expect(draft.threadId).toBe("t1");
+  });
+
+  it("keeps paginating when excludeMailingLists filters the first page away", async () => {
+    fetchMock.mockImplementation(async (input: string | URL) => {
+      const url = String(input);
+
+      if (url.includes("/users/me/messages?")) {
+        const parsed = new URL(url);
+        const pageToken = parsed.searchParams.get("pageToken");
+        if (pageToken === "page-2") {
+          return {
+            ok: true,
+            json: async () => ({
+              messages: [{ id: "m3", threadId: "t3" }],
+              resultSizeEstimate: 3
+            })
+          };
+        }
+
+        return {
+          ok: true,
+          json: async () => ({
+            messages: [
+              { id: "m1", threadId: "t1" },
+              { id: "m2", threadId: "t2" }
+            ],
+            nextPageToken: "page-2",
+            resultSizeEstimate: 3
+          })
+        };
+      }
+
+      if (url.includes("/users/me/messages/m1")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "m1",
+            threadId: "t1",
+            labelIds: ["INBOX"],
+            internalDate: `${Date.parse("2026-03-31T00:00:00Z")}`,
+            payload: {
+              headers: [
+                { name: "Subject", value: "Newsletter" },
+                { name: "From", value: "list@example.com" },
+                { name: "List-Id", value: "newsletter.example.com" }
+              ]
+            }
+          })
+        };
+      }
+
+      if (url.includes("/users/me/messages/m2")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "m2",
+            threadId: "t2",
+            labelIds: ["INBOX"],
+            internalDate: `${Date.parse("2026-03-31T00:01:00Z")}`,
+            payload: {
+              headers: [
+                { name: "Subject", value: "Another Newsletter" },
+                { name: "From", value: "list@example.com" },
+                { name: "List-Unsubscribe", value: "<mailto:unsubscribe@example.com>" }
+              ]
+            }
+          })
+        };
+      }
+
+      if (url.includes("/users/me/messages/m3")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "m3",
+            threadId: "t3",
+            labelIds: ["INBOX"],
+            snippet: "Human message",
+            internalDate: `${Date.parse("2026-03-31T00:02:00Z")}`,
+            payload: {
+              headers: [
+                { name: "Subject", value: "Human" },
+                { name: "From", value: "person@example.com" },
+                { name: "To", value: "user@gmail.com" }
+              ],
+              parts: [
+                {
+                  mimeType: "text/plain",
+                  body: {
+                    data: Buffer.from("Human message", "utf8").toString("base64url")
+                  }
+                }
+              ]
+            }
+          })
+        };
+      }
+
+      if (url.endsWith("/users/me/labels")) {
+        return {
+          ok: true,
+          json: async () => ({
+            labels: [{ id: "INBOX", name: "INBOX", type: "system" }]
+          })
+        };
+      }
+
+      throw new Error(`Unexpected fetch URL in excludeMailingLists test: ${url}`);
+    });
+
+    const adapter = new GoogleMailAdapter(account, auth);
+    const result = await adapter.searchMessages({ text: "hello", limit: 1, excludeMailingLists: true });
+
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0]?.subject).toBe("Human");
     expect(result.total).toBe(1);
+    expect(result.nextPosition).toBeUndefined();
   });
 
   it("lists Google calendar events across calendars", async () => {

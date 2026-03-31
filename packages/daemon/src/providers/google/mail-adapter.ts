@@ -57,6 +57,12 @@ type GmailThread = {
   messages?: GmailMessage[];
 };
 
+type PagedReferencesResult = {
+  refs: GmailMessageRef[];
+  total: number;
+  nextPosition?: number;
+};
+
 type LabelInfo = {
   id: string;
   name: string;
@@ -201,6 +207,12 @@ function displayNameForLabel(label: GmailLabel): string {
 
 function subjectForReply(subject: string): string {
   return /^re:/i.test(subject) ? subject : `Re: ${subject}`;
+}
+
+function latestThreadMessage(thread: GmailThread): GmailMessage | undefined {
+  return [...(thread.messages ?? [])]
+    .sort((left, right) => Number(left.internalDate ?? "0") - Number(right.internalDate ?? "0"))
+    .at(-1);
 }
 
 export class GoogleMailAdapter {
@@ -380,14 +392,15 @@ export class GoogleMailAdapter {
   private async getPagedReferences(
     kind: "messages" | "threads",
     input: MessageSearchInput
-  ): Promise<{ refs: GmailMessageRef[]; total: number }> {
+  ): Promise<PagedReferencesResult> {
     const targetPosition = input.position ?? 0;
     const limit = input.limit ?? 25;
     const { q, labelIds } = await this.buildSearch(input);
 
     let pageToken: string | undefined;
-    let consumed = 0;
     let total = 0;
+    let logicalPosition = 0;
+    const refs: GmailMessageRef[] = [];
 
     while (true) {
       const payload = await this.client.requestJson<{
@@ -399,25 +412,99 @@ export class GoogleMailAdapter {
         query: {
           q,
           labelIds,
-          maxResults: Math.min(limit, 100),
+          maxResults: Math.min(Math.max(limit, 100), 500),
           pageToken
         }
       });
 
       total = payload.resultSizeEstimate ?? total;
-      const refs = (kind === "threads" ? payload.threads : payload.messages) ?? [];
+      const pageRefs = (kind === "threads" ? payload.threads : payload.messages) ?? [];
 
-      if (consumed + refs.length > targetPosition || !payload.nextPageToken) {
-        const start = Math.max(0, targetPosition - consumed);
+      for (const ref of pageRefs) {
+        if (logicalPosition >= targetPosition && refs.length < limit) {
+          refs.push(ref);
+        }
+        logicalPosition += 1;
+      }
+
+      if (refs.length >= limit) {
         return {
-          refs: refs.slice(start, start + limit),
-          total
+          refs,
+          total,
+          nextPosition: targetPosition + refs.length < total ? targetPosition + refs.length : undefined
         };
       }
 
-      consumed += refs.length;
+      if (!payload.nextPageToken) {
+        return {
+          refs,
+          total,
+          nextPosition: targetPosition + refs.length < total ? targetPosition + refs.length : undefined
+        };
+      }
+
       pageToken = payload.nextPageToken;
     }
+  }
+
+  private async searchMessagesExcludingMailingLists(
+    kind: "messages" | "threads",
+    input: MessageSearchInput
+  ): Promise<MessageSearchResult> {
+    const position = input.position ?? 0;
+    const limit = input.limit ?? 25;
+    const { q, labelIds } = await this.buildSearch(input);
+
+    let pageToken: string | undefined;
+    let filteredTotal = 0;
+    const messages: MessageSummary[] = [];
+
+    while (true) {
+      const payload = await this.client.requestJson<{
+        messages?: GmailMessageRef[];
+        threads?: GmailMessageRef[];
+        nextPageToken?: string;
+      }>(this.gmailBaseUrl, `users/me/${kind}`, {
+        query: {
+          q,
+          labelIds,
+          maxResults: Math.min(Math.max(limit, 100), 500),
+          pageToken
+        }
+      });
+
+      const pageRefs = (kind === "threads" ? payload.threads : payload.messages) ?? [];
+      for (const ref of pageRefs) {
+        const candidate = kind === "threads" ? latestThreadMessage(await this.getThread(ref.id)) : await this.getMessage(ref.id);
+        if (!candidate || this.isMailingList(candidate)) {
+          continue;
+        }
+
+        filteredTotal += 1;
+        if (filteredTotal <= position) {
+          continue;
+        }
+
+        if (messages.length < limit) {
+          messages.push(await this.summarizeMessage(candidate));
+        }
+      }
+
+      if (!payload.nextPageToken) {
+        break;
+      }
+
+      pageToken = payload.nextPageToken;
+    }
+
+    return {
+      messages,
+      total: filteredTotal,
+      position,
+      limit,
+      nextPosition: position + messages.length < filteredTotal ? position + messages.length : undefined,
+      collapseThreads: kind === "threads"
+    };
   }
 
   private isMailingList(message: GmailMessage): boolean {
@@ -470,6 +557,7 @@ export class GoogleMailAdapter {
       bcc: normalizeAddressList(headerValue(headers, "bcc")),
       textBody: bodies.textBody,
       htmlBody: bodies.htmlBody,
+      messageIdHeader: headerValue(headers, "message-id"),
       references: (headerValue(headers, "references") ?? "").split(/\s+/).filter(Boolean),
       replyTo: normalizeAddressList(headerValue(headers, "reply-to"))
     };
@@ -478,21 +566,19 @@ export class GoogleMailAdapter {
   async searchMessages(input: MessageSearchInput): Promise<MessageSearchResult> {
     const collapseThreads = input.collapseThreads === true;
     const kind = collapseThreads ? "threads" : "messages";
-    const { refs, total } = await this.getPagedReferences(kind, input);
+    if (input.excludeMailingLists) {
+      return await this.searchMessagesExcludingMailingLists(kind, input);
+    }
+
+    const { refs, total, nextPosition } = await this.getPagedReferences(kind, input);
 
     let messages: MessageSummary[];
     if (collapseThreads) {
       const threads = await Promise.all(refs.map(async (ref) => await this.getThread(ref.id)));
       const expanded = await Promise.all(
         threads.map(async (thread) => {
-          const latest = [...(thread.messages ?? [])]
-            .sort((left, right) => Number(left.internalDate ?? "0") - Number(right.internalDate ?? "0"))
-            .at(-1);
+          const latest = latestThreadMessage(thread);
           if (!latest) {
-            return undefined;
-          }
-
-          if (input.excludeMailingLists && this.isMailingList(latest)) {
             return undefined;
           }
 
@@ -521,7 +607,7 @@ export class GoogleMailAdapter {
       total,
       position,
       limit,
-      nextPosition: position + refs.length < total ? position + refs.length : undefined,
+      nextPosition,
       collapseThreads
     };
   }
@@ -555,14 +641,18 @@ export class GoogleMailAdapter {
     if (!message) {
       throw new Error(`Unable to load Gmail message for reply draft: ${messageId}`);
     }
+    const references = [...message.references];
+    if (message.messageIdHeader && references.at(-1) !== message.messageIdHeader) {
+      references.push(message.messageIdHeader);
+    }
     const body = instructions?.trim() ? `${instructions.trim()}${quotedReply(message)}` : quotedReply(message).trimStart();
     return {
       subject: subjectForReply(message.subject),
       to: message.replyTo?.length ? message.replyTo : message.from,
       cc: [],
       textBody: body,
-      inReplyTo: message.references.at(-1),
-      references: message.references,
+      inReplyTo: message.messageIdHeader,
+      references,
       threadId: message.threadId
     };
   }

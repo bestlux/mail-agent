@@ -112,6 +112,7 @@ export type MessageDetail = MessageSummary & {
   bcc: string[];
   textBody: string;
   htmlBody?: string;
+  messageIdHeader?: string;
   references: string[];
   replyTo?: string[];
 };
