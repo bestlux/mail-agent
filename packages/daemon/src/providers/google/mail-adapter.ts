@@ -189,6 +189,7 @@ function subjectForReply(subject: string): string {
 
 export class GoogleMailAdapter {
   private readonly client: GoogleApiClient;
+  private readonly auth: OAuthAuthMaterial;
   private labelsById?: Map<string, LabelInfo>;
   private labelsByName?: Map<string, LabelInfo>;
 
@@ -196,6 +197,7 @@ export class GoogleMailAdapter {
     private readonly account: AccountConfig,
     auth: OAuthAuthMaterial
   ) {
+    this.auth = auth;
     this.client = new GoogleApiClient(account, auth);
   }
 
@@ -695,6 +697,12 @@ export class GoogleMailAdapter {
   }
 
   async deleteMessages(messageIds: string[]): Promise<{ destroyed: string[] }> {
+    if (!this.auth.scopes.includes("https://mail.google.com/")) {
+      throw new Error(
+        "Permanent Gmail delete requires the https://mail.google.com/ scope. Re-auth with `mail-agent auth google --full-gmail-access` to enable delete_messages."
+      );
+    }
+
     await this.client.requestJson<void>(this.gmailBaseUrl, "users/me/messages/batchDelete", {
       method: "POST",
       body: {

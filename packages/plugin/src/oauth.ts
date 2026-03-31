@@ -20,7 +20,7 @@ function createCodeChallenge(codeVerifier: string): string {
 async function openBrowser(url: string): Promise<void> {
   try {
     if (process.platform === "win32") {
-      await execFileAsync("cmd", ["/c", "start", "", url]);
+      await execFileAsync("powershell", ["-NoProfile", "-Command", "Start-Process", url]);
       return;
     }
 

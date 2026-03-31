@@ -6,7 +6,7 @@
         "./dist/bin/mail-agent.js",
         "daemon"
       ],
-      "note": "Local stdio daemon for Fastmail-first mail, calendar, and contacts workflows."
+      "note": "Local stdio daemon for provider-native mail, calendar, and contacts workflows."
     }
   }
 }

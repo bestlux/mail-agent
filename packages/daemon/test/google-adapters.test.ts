@@ -172,6 +172,7 @@ describe("Google adapters", () => {
     const search = await adapter.searchContacts({ query: "Cody" });
     const contact = await adapter.getContact(search[0]!.id);
 
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("https://people.googleapis.com/v1/people:searchContacts");
     expect(search[0]?.fullName).toBe("Cody");
     expect(contact.emails).toEqual(["cody@example.com"]);
     expect(contact.phones).toEqual(["+1 555-0100"]);

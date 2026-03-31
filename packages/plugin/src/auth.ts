@@ -20,6 +20,7 @@ type GoogleAuthOptions = {
   clientSecret?: string;
   redirectHost?: string;
   redirectPort?: number;
+  fullGmailAccess?: boolean;
 };
 
 async function prompt(question: string): Promise<string> {
@@ -83,7 +84,7 @@ export async function authGoogle(options: GoogleAuthOptions): Promise<AccountCon
   const redirectHost = options.redirectHost ?? "127.0.0.1";
   const redirectPort = options.redirectPort;
   const scopes = [
-    "https://www.googleapis.com/auth/gmail.modify",
+    options.fullGmailAccess ? "https://mail.google.com/" : "https://www.googleapis.com/auth/gmail.modify",
     "https://www.googleapis.com/auth/calendar.readonly",
     "https://www.googleapis.com/auth/contacts.readonly"
   ];

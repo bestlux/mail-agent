@@ -5,7 +5,11 @@ function ensureTrailingSlash(value: string): string {
 }
 
 function joinUrl(base: string, path: string): string {
-  return new URL(path.replace(/^\//, ""), ensureTrailingSlash(base)).toString();
+  const normalized = path.replace(/^\//, "");
+  const relativePath = normalized.includes(":") && !normalized.includes("/")
+    ? `./${normalized}`
+    : normalized;
+  return new URL(relativePath, ensureTrailingSlash(base)).toString();
 }
 
 function toSearchParams(query: Record<string, string | number | boolean | undefined | Array<string>>): URLSearchParams {

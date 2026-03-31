@@ -234,6 +234,7 @@ node packages/plugin/dist/bin/mail-agent.js auth google `
 Optional flags:
 
 - `--client-secret <secret>` if your Google client includes one
+- `--full-gmail-access` if you want permanent Gmail delete support
 - `--redirect-host 127.0.0.1`
 - `--redirect-port 4567`
 
@@ -242,6 +243,18 @@ Current default Google scopes:
 - `https://www.googleapis.com/auth/gmail.modify`
 - `https://www.googleapis.com/auth/calendar.readonly`
 - `https://www.googleapis.com/auth/contacts.readonly`
+
+If you want Gmail `delete_messages` to permanently delete instead of stopping with a scope error, re-auth with:
+
+```powershell
+node packages/plugin/dist/bin/mail-agent.js auth google `
+  --account gmail `
+  --email you@gmail.com `
+  --client-id <client-id> `
+  --full-gmail-access
+```
+
+That swaps the mail scope to `https://mail.google.com/`, which is broader than the default.
 
 Useful official references:
 
