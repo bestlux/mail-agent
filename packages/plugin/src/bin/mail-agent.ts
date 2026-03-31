@@ -58,6 +58,7 @@ auth
   .option("--redirect-host <host>", "Loopback host to bind during OAuth", "127.0.0.1")
   .option("--redirect-port <port>", "Loopback port to bind during OAuth", (value) => Number.parseInt(value, 10))
   .option("--full-gmail-access", "Request the broader Gmail scope required for permanent delete support", false)
+  .option("--no-open-browser", "Print the auth URL without trying to launch a browser")
   .option("--name <displayName>", "Display name")
   .action(async (options: {
     account: string;
@@ -67,6 +68,7 @@ auth
     redirectHost?: string;
     redirectPort?: number;
     fullGmailAccess?: boolean;
+    openBrowser?: boolean;
     name?: string;
   }) => {
     const account = await authGoogle({
@@ -77,6 +79,7 @@ auth
       redirectHost: options.redirectHost,
       redirectPort: options.redirectPort,
       fullGmailAccess: options.fullGmailAccess,
+      openBrowser: options.openBrowser,
       displayName: options.name
     });
     console.log(JSON.stringify(account, null, 2));

@@ -42,6 +42,7 @@ Treat the tool contract as canonical. Providers differ underneath, but the workf
 - `archive_messages`, `move_messages`, `tag_messages`, and `mark_messages` are normal tools.
 - `send_message` is allowed, but only send when the user clearly wants the message sent.
 - Verify mailbox destinations before moving, especially on Gmail where mailbox-like behavior is label-based.
+- Gmail permanent delete may require broader auth than normal mail actions. If delete fails with a scope message, surface that clearly instead of retrying blindly.
 - `delete_messages` is always two-step:
   1. call without `confirmationToken`
   2. inspect the returned token
@@ -62,6 +63,7 @@ Never imply delete is reversible unless the provider behavior is known.
 - Use `get_contact` for an exact contact or shortlist winner.
 - Call out fuzzy matches.
 - Lead with the most actionable fields: email, phone, organization.
+- For Google accounts, remember this searches actual Google Contacts, not every person the user has emailed.
 - If contact data is sparse, say the address book may be sparse rather than implying lookup failure.
 
 ## Inference

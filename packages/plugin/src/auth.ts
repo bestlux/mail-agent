@@ -21,6 +21,7 @@ type GoogleAuthOptions = {
   redirectHost?: string;
   redirectPort?: number;
   fullGmailAccess?: boolean;
+  openBrowser?: boolean;
 };
 
 async function prompt(question: string): Promise<string> {
@@ -89,6 +90,24 @@ export async function authGoogle(options: GoogleAuthOptions): Promise<AccountCon
     "https://www.googleapis.com/auth/contacts.readonly"
   ];
 
+  console.log(
+    JSON.stringify(
+      {
+        provider: "google-workspace",
+        accountId: options.accountId,
+        emailHint: options.email,
+        redirectHost,
+        redirectPort: redirectPort ?? "auto",
+        openBrowser: options.openBrowser !== false,
+        fullGmailAccess: options.fullGmailAccess === true,
+        scopes
+      },
+      null,
+      2
+    )
+  );
+  console.log("Google app requirements: External user type, Testing audience, your Gmail added as a test user, Desktop app OAuth client.\n");
+
   const tokenSet = await runLoopbackOAuth({
     authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth",
     tokenUrl: "https://oauth2.googleapis.com/token",
@@ -97,7 +116,8 @@ export async function authGoogle(options: GoogleAuthOptions): Promise<AccountCon
     scopes,
     redirectHost,
     redirectPort,
-    loginHint: options.email
+    loginHint: options.email,
+    openBrowser: options.openBrowser
   });
 
   const profileResponse = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/profile", {

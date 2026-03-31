@@ -118,6 +118,12 @@ node packages/plugin/dist/bin/mail-agent.js auth fastmail --account personal --e
 node packages/plugin/dist/bin/mail-agent.js auth google --account gmail --email you@gmail.com --client-id <client-id>
 ```
 
+If browser launch is flaky on your machine:
+
+```powershell
+node packages/plugin/dist/bin/mail-agent.js auth google --account gmail --email you@gmail.com --client-id <client-id> --no-open-browser
+```
+
 Then check the runtime:
 
 ```powershell
@@ -217,10 +223,22 @@ Google support uses installed-app OAuth with a local loopback redirect. The flow
 Before running `auth google`, set up Google Cloud:
 
 1. Create or choose a Google Cloud project.
-2. Configure the OAuth consent screen.
-3. Enable the Gmail API, Google Calendar API, and People API.
-4. Create an OAuth client with application type `Desktop app`.
-5. Use that client ID when running `mail-agent auth google`.
+2. Configure the OAuth consent screen or Google Auth platform branding.
+3. Set user type to `External`.
+4. Keep the app in `Testing`.
+5. Add your Gmail account under `Test users`.
+6. Enable the Gmail API, Google Calendar API, and People API.
+7. Create an OAuth client with application type `Desktop app`.
+8. Use that client ID when running `mail-agent auth google`.
+
+For personal Gmail usage, the expected setup is:
+
+- `External` user type
+- `Testing` publishing status
+- your own Gmail added under `Test users`
+- `Desktop app` OAuth client
+
+If your Gmail is not listed as a test user, Google will block the app even if the APIs and client are configured correctly.
 
 Example:
 
@@ -235,6 +253,7 @@ Optional flags:
 
 - `--client-secret <secret>` if your Google client includes one
 - `--full-gmail-access` if you want permanent Gmail delete support
+- `--no-open-browser` if you want to open the OAuth URL yourself
 - `--redirect-host 127.0.0.1`
 - `--redirect-port 4567`
 
@@ -255,6 +274,12 @@ node packages/plugin/dist/bin/mail-agent.js auth google `
 ```
 
 That swaps the mail scope to `https://mail.google.com/`, which is broader than the default.
+
+Google Contacts notes:
+
+- `search_contacts` only searches actual Google Contacts data
+- it does not search everyone you have ever emailed
+- an empty result can just mean the person is not saved in Google Contacts
 
 Useful official references:
 

@@ -178,6 +178,22 @@ function displayNameForLabel(label: GmailLabel): string {
       return "Starred";
     case "IMPORTANT":
       return "Important";
+    case "UNREAD":
+      return "Unread";
+    case "CHAT":
+      return "Chat";
+    case "CATEGORY_PERSONAL":
+      return "Personal";
+    case "CATEGORY_UPDATES":
+      return "Updates";
+    case "CATEGORY_PROMOTIONS":
+      return "Promotions";
+    case "CATEGORY_SOCIAL":
+      return "Social";
+    case "CATEGORY_FORUMS":
+      return "Forums";
+    case "YELLOW_STAR":
+      return "Yellow Star";
     default:
       return label.name;
   }

@@ -148,6 +148,7 @@ export async function runLoopbackOAuth(options: {
   redirectPort?: number;
   loginHint?: string;
   prompt?: string;
+  openBrowser?: boolean;
 }): Promise<{
   accessToken: string;
   refreshToken: string;
@@ -177,7 +178,11 @@ export async function runLoopbackOAuth(options: {
     }
 
     console.log(`Open this URL in your browser to authorize mail-agent:\n${authUrl.toString()}\n`);
-    await openBrowser(authUrl.toString());
+    if (options.openBrowser !== false) {
+      await openBrowser(authUrl.toString());
+    } else {
+      console.log("Automatic browser launch is disabled. Open the URL above manually.\n");
+    }
 
     const { code } = await callback.waitForCode(state);
     const body = new URLSearchParams({
