@@ -182,9 +182,17 @@ node packages/plugin/dist/bin/mail-agent.js doctor
 
 ## Install from npm
 
-The release layout is designed so the public package is `mail-agent`, with `@mail-agent/daemon` and `@mail-agent/shared` published alongside it as internal support packages.
+The public package name is `mail-agent`.
 
-After the packages are published, the intended CLI install is:
+The repo still publishes `@mail-agent/daemon` and `@mail-agent/shared` alongside it because the CLI is split into a public plugin package plus two internal support packages. Most users should ignore that and just install `mail-agent`.
+
+Once the first npm release is live, the normal install paths will be:
+
+```powershell
+npx mail-agent install
+```
+
+or, if you want the CLI on your path:
 
 ```powershell
 npm install -g mail-agent
@@ -193,6 +201,20 @@ mail-agent auth fastmail --account personal --email you@fastmail.com
 mail-agent auth google --account gmail --email you@gmail.com --client-id <client-id>
 mail-agent doctor
 ```
+
+## Releases
+
+Releases are meant to go out through GitHub Actions, not from somebody's laptop.
+
+The happy path is:
+
+1. Bump the workspace version across the root package plus the three publishable packages.
+2. Push a tag like `v0.2.0`.
+3. Let `.github/workflows/publish.yml` build, test, dry-run, and publish the workspace to npm.
+
+The repo is set up for npm trusted publishing from GitHub Actions. For a brand-new package bootstrap, you can still use an `NPM_TOKEN` repository secret for the first release, then switch to trusted publishers for steady-state releases.
+
+Release details live in [RELEASING.md](./RELEASING.md).
 
 ## Fastmail setup
 
