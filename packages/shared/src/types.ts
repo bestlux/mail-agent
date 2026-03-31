@@ -82,6 +82,12 @@ export type MessageSummary = {
   mailboxNames: string[];
 };
 
+export type MailboxSummary = {
+  id: string;
+  name: string;
+  role?: string;
+};
+
 export type MessageDetail = MessageSummary & {
   cc: string[];
   bcc: string[];
@@ -106,12 +112,25 @@ export type DraftMessage = {
 export type MessageSearchInput = {
   text?: string;
   mailbox?: string;
+  mailboxRole?: string;
   from?: string;
   subject?: string;
   unread?: boolean;
+  excludeMailingLists?: boolean;
+  collapseThreads?: boolean;
+  position?: number;
   since?: string;
   until?: string;
   limit?: number;
+};
+
+export type MessageSearchResult = {
+  messages: MessageSummary[];
+  total: number;
+  position: number;
+  limit: number;
+  nextPosition?: number;
+  collapseThreads: boolean;
 };
 
 export type EventSummary = {

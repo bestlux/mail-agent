@@ -6,3 +6,4 @@ coverage/
 .env
 .env.*
 *.log
+tmp-*.json

@@ -11,12 +11,16 @@ Use this skill to operate against configured `mail-agent` accounts through the l
 
 ## Core Defaults
 
+- Use `list_mailboxes` before mailbox-specific actions when the destination or filter is not already known.
 - Start with `search_messages` for mailbox discovery and shortlist work.
+- Prefer `collapseThreads: true` during broad triage so one active process does not flood the shortlist.
 - Use `read_thread` when thread context changes the answer or reply tone.
 - Use `read_message_batch` for a tight shortlist where full bodies matter.
 - Default to `compose_message` or `draft_reply` before `send_message`.
 - Use `archive_messages`, `move_messages`, `tag_messages`, and `mark_messages` for trusted automation flows.
 - Treat `delete_messages` as a gated destructive action. First request the confirmation token, then call again with that token only if the user clearly wants permanent deletion.
+- `search_messages` accepts `YYYY-MM-DD` and RFC3339 timestamps for `since` and `until`.
+- Use `excludeMailingLists: true` when you want human conversations rather than newsletters and alerts.
 
 ## Accounts
 

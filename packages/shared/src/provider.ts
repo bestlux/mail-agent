@@ -5,9 +5,10 @@ import type {
   ContactSummary,
   DraftMessage,
   EventSummary,
+  MailboxSummary,
   MessageDetail,
   MessageSearchInput,
-  MessageSummary
+  MessageSearchResult
 } from "./types.js";
 
 export type ProviderContext = {
@@ -16,7 +17,8 @@ export type ProviderContext = {
 
 export interface MailProvider {
   listAccounts(): Promise<AccountConfig[]>;
-  searchMessages(input: MessageSearchInput): Promise<MessageSummary[]>;
+  listMailboxes(): Promise<MailboxSummary[]>;
+  searchMessages(input: MessageSearchInput): Promise<MessageSearchResult>;
   readMessageBatch(messageIds: string[]): Promise<MessageDetail[]>;
   readThread(threadId: string): Promise<MessageDetail[]>;
   composeMessage(draft: DraftMessage): Promise<DraftMessage>;

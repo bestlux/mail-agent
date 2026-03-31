@@ -19,6 +19,7 @@ export async function createProviderBundle(account: AccountConfig): Promise<Prov
       return {
         account,
         listAccounts: async () => [account],
+        listMailboxes: mail.listMailboxes.bind(mail),
         searchMessages: mail.searchMessages.bind(mail),
         readMessageBatch: mail.readMessageBatch.bind(mail),
         readThread: mail.readThread.bind(mail),

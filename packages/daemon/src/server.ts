@@ -13,9 +13,15 @@ export function createServer(): McpServer {
     description: "List configured mail-agent accounts."
   }, handlers.listAccounts as never);
 
+  server.registerTool("list_mailboxes", {
+    title: "List mailboxes",
+    description: "List available mailboxes with ids, names, and roles for the account.",
+    inputSchema: toolSchemas.listMailboxes.shape
+  }, handlers.listMailboxes as never);
+
   server.registerTool("search_messages", {
     title: "Search messages",
-    description: "Search Fastmail-backed mail by text, mailbox, sender, subject, or date filters.",
+    description: "Search Fastmail-backed mail with pagination, thread collapsing, mailbox filters, and date filters.",
     inputSchema: toolSchemas.searchMessages.shape
   }, handlers.searchMessages as never);
 

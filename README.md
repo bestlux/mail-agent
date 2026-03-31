@@ -15,6 +15,7 @@ If you want Codex to do inbox triage, thread summaries, reply drafting, trusted 
 Current v1 behavior:
 
 - Mail via Fastmail `JMAP`
+  - list mailboxes
   - search
   - read message batches
   - read threads
@@ -196,6 +197,7 @@ This keeps destructive mailbox actions explicit even when everything else is tru
 The daemon currently exposes:
 
 - `list_accounts`
+- `list_mailboxes`
 - `search_messages`
 - `read_message_batch`
 - `read_thread`
@@ -211,6 +213,11 @@ The daemon currently exposes:
 - `get_events`
 - `search_contacts`
 - `get_contact`
+
+Notes:
+
+- `search_messages` supports pagination, thread-collapsed search, mailbox-role filtering, and mailing-list exclusion.
+- `since` and `until` accept RFC3339 timestamps or `YYYY-MM-DD`.
 
 ## Repo layout
 

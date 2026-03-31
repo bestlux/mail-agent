@@ -1,8 +1,10 @@
 import type {
   AccountConfig,
   DraftMessage,
+  MailboxSummary,
   MessageDetail,
   MessageSearchInput,
+  MessageSearchResult,
   MessageSummary
 } from "@mail-agent/shared";
 import { type AuthMaterial } from "@mail-agent/shared";
@@ -22,11 +24,55 @@ type IdentityInfo = {
 
 type RawEmail = Record<string, unknown>;
 
+const htmlEntityMap: Record<string, string> = {
+  amp: "&",
+  apos: "'",
+  gt: ">",
+  lt: "<",
+  nbsp: " ",
+  quot: "\""
+};
+
 function asArray<T>(value: T | T[] | undefined): T[] {
   if (!value) {
     return [];
   }
   return Array.isArray(value) ? value : [value];
+}
+
+function decodeHtmlEntities(value: string): string {
+  return value.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (match, entity) => {
+    const normalized = String(entity).toLowerCase();
+
+    if (normalized.startsWith("#x")) {
+      const codePoint = Number.parseInt(normalized.slice(2), 16);
+      return Number.isNaN(codePoint) ? match : String.fromCodePoint(codePoint);
+    }
+
+    if (normalized.startsWith("#")) {
+      const codePoint = Number.parseInt(normalized.slice(1), 10);
+      return Number.isNaN(codePoint) ? match : String.fromCodePoint(codePoint);
+    }
+
+    return htmlEntityMap[normalized] ?? match;
+  });
+}
+
+function htmlToText(value: string): string {
+  return decodeHtmlEntities(
+    value
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n\n")
+      .replace(/<\/div>/gi, "\n")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\r/g, "")
+  )
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
 }
 
 function emailList(value: unknown): string[] {
@@ -45,11 +91,12 @@ function firstTextBody(email: RawEmail): string {
   const textBody = asArray(email.textBody as Array<{ partId?: string }>);
   const partId = textBody[0]?.partId;
 
-  if (!partId) {
-    return "";
+  if (partId) {
+    return bodyValues[partId]?.value ?? "";
   }
 
-  return bodyValues[partId]?.value ?? "";
+  const html = firstHtmlBody(email);
+  return html ? htmlToText(html) : "";
 }
 
 function firstHtmlBody(email: RawEmail): string | undefined {
@@ -118,6 +165,10 @@ function buildFilter(input: MessageSearchInput): Record<string, unknown> {
     conditions.push({ notKeyword: "$seen" });
   }
 
+  if (input.excludeMailingLists === true) {
+    conditions.push({ notKeyword: "$ismailinglist" });
+  }
+
   if (input.since) {
     conditions.push({ after: input.since });
   }
@@ -182,6 +233,16 @@ export class FastmailMailAdapter {
     return this.mailboxMap;
   }
 
+  async listMailboxes(): Promise<MailboxSummary[]> {
+    return [...(await this.getMailboxMap()).values()]
+      .sort((left, right) => left.name.localeCompare(right.name))
+      .map((mailbox) => ({
+        id: mailbox.id,
+        name: mailbox.name,
+        role: mailbox.role
+      }));
+  }
+
   private async getIdentity(): Promise<IdentityInfo> {
     if (!this.identities) {
       const accountId = await this.client.getSubmissionAccountId();
@@ -210,6 +271,35 @@ export class FastmailMailAdapter {
   private async findMailboxIdByRole(role: string): Promise<string | undefined> {
     const mailboxes = await this.getMailboxMap();
     return [...mailboxes.values()].find((mailbox) => mailbox.role === role)?.id;
+  }
+
+  private async resolveMailboxId(reference: string): Promise<string | undefined> {
+    const mailboxRef = reference.trim();
+    if (!mailboxRef) {
+      return undefined;
+    }
+
+    const mailboxes = await this.getMailboxMap();
+    if (mailboxes.has(mailboxRef)) {
+      return mailboxRef;
+    }
+
+    const normalized = mailboxRef.toLowerCase();
+    return [...mailboxes.values()].find((mailbox) => {
+      return mailbox.name.toLowerCase() === normalized || mailbox.role?.toLowerCase() === normalized;
+    })?.id;
+  }
+
+  private async resolveSearchFilter(input: MessageSearchInput): Promise<Record<string, unknown>> {
+    const resolved: MessageSearchInput = { ...input };
+
+    if (input.mailboxRole) {
+      resolved.mailbox = await this.findMailboxIdByRole(input.mailboxRole);
+    } else if (input.mailbox) {
+      resolved.mailbox = await this.resolveMailboxId(input.mailbox);
+    }
+
+    return buildFilter(resolved);
   }
 
   private async getMessages(ids: string[]): Promise<MessageDetail[]> {
@@ -244,19 +334,31 @@ export class FastmailMailAdapter {
     return ((payload.list ?? []) as RawEmail[]).map((email) => messageDetail(email, mailboxes));
   }
 
-  async searchMessages(input: MessageSearchInput): Promise<MessageSummary[]> {
+  async searchMessages(input: MessageSearchInput): Promise<MessageSearchResult> {
     const accountId = await this.client.getMailAccountId();
     const mailboxes = await this.getMailboxMap();
+    const limit = input.limit ?? 20;
+    const position = input.position ?? 0;
+    const collapseThreads = input.collapseThreads ?? false;
     const query = await this.client.callSingle("Email/query", {
       accountId,
-      filter: buildFilter(input),
+      filter: await this.resolveSearchFilter(input),
       sort: [{ property: "receivedAt", isAscending: false }],
-      limit: input.limit ?? 20
+      collapseThreads,
+      position,
+      limit,
+      calculateTotal: true
     });
 
     const ids = (query.ids ?? []) as string[];
     if (ids.length === 0) {
-      return [];
+      return {
+        messages: [],
+        total: Number(query.total ?? 0),
+        position: Number(query.position ?? position),
+        limit,
+        collapseThreads
+      };
     }
 
     const payload = await this.client.callSingle("Email/get", {
@@ -265,7 +367,19 @@ export class FastmailMailAdapter {
       properties: ["id", "threadId", "mailboxIds", "keywords", "subject", "from", "to", "receivedAt", "sentAt", "preview"]
     });
 
-    return ((payload.list ?? []) as RawEmail[]).map((email) => messageSummary(email, mailboxes));
+    const messages = ((payload.list ?? []) as RawEmail[]).map((email) => messageSummary(email, mailboxes));
+    const total = Number(query.total ?? messages.length);
+    const resolvedPosition = Number(query.position ?? position);
+    const nextPosition = resolvedPosition + messages.length < total ? resolvedPosition + messages.length : undefined;
+
+    return {
+      messages,
+      total,
+      position: resolvedPosition,
+      limit,
+      nextPosition,
+      collapseThreads
+    };
   }
 
   async readMessageBatch(messageIds: string[]): Promise<MessageDetail[]> {
@@ -274,14 +388,14 @@ export class FastmailMailAdapter {
 
   async readThread(threadId: string): Promise<MessageDetail[]> {
     const accountId = await this.client.getMailAccountId();
-    const payload = await this.client.callSingle("Email/query", {
+    const payload = await this.client.callSingle("Thread/get", {
       accountId,
-      filter: { threadId },
-      sort: [{ property: "receivedAt", isAscending: true }],
-      limit: 200
+      ids: [threadId]
     });
-
-    return await this.getMessages((payload.ids ?? []) as string[]);
+    const thread = ((payload.list ?? []) as Array<{ emailIds?: string[] }>)[0];
+    const emailIds = thread?.emailIds ?? [];
+    const messages = await this.getMessages(emailIds);
+    return messages.sort((left, right) => left.receivedAt.localeCompare(right.receivedAt));
   }
 
   async composeMessage(draft: DraftMessage): Promise<DraftMessage> {
@@ -401,8 +515,13 @@ export class FastmailMailAdapter {
   }
 
   async moveMessages(messageIds: string[], destinationMailbox: string): Promise<{ moved: string[] }> {
+    const resolvedMailboxId = await this.resolveMailboxId(destinationMailbox);
+    if (!resolvedMailboxId) {
+      throw new Error(`Unknown destination mailbox: ${destinationMailbox}`);
+    }
+
     await this.updateEmails(messageIds, {
-      mailboxIds: { [destinationMailbox]: true }
+      mailboxIds: { [resolvedMailboxId]: true }
     });
     return { moved: messageIds };
   }

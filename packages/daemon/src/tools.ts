@@ -17,6 +17,8 @@ import { createProviderBundle } from "./providers/factory.js";
 
 const cache = new FileCache();
 
+const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+
 export const toolSchemas = {
   accountOnly: z.object({
     accountId: z.string().min(1)
@@ -25,12 +27,19 @@ export const toolSchemas = {
     accountId: z.string().min(1),
     text: z.string().optional(),
     mailbox: z.string().optional(),
+    mailboxRole: z.string().min(1).optional(),
     from: z.string().optional(),
     subject: z.string().optional(),
     unread: z.boolean().optional(),
+    excludeMailingLists: z.boolean().optional(),
+    collapseThreads: z.boolean().optional(),
+    position: z.number().int().min(0).optional(),
     since: z.string().optional(),
     until: z.string().optional(),
-    limit: z.number().int().min(1).max(100).optional()
+    limit: z.number().int().min(1).max(250).optional()
+  }),
+  listMailboxes: z.object({
+    accountId: z.string().min(1)
   }),
   readMessageBatch: z.object({
     accountId: z.string().min(1),
@@ -132,6 +141,40 @@ function render(result: unknown): string {
   return JSON.stringify(result, null, 2);
 }
 
+function normalizeDateFilter(value: string | undefined, bound: "since" | "until"): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  if (isoDatePattern.test(value)) {
+    return bound === "since" ? `${value}T00:00:00Z` : `${value}T23:59:59.999Z`;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.valueOf())) {
+    throw new Error(`Invalid ${bound} value: ${value}. Use RFC3339 or YYYY-MM-DD.`);
+  }
+
+  return parsed.toISOString();
+}
+
+function normalizeSearchInput(input: z.infer<typeof toolSchemas.searchMessages>): MessageSearchInput {
+  return {
+    text: input.text?.trim() || undefined,
+    mailbox: input.mailbox?.trim() || undefined,
+    mailboxRole: input.mailboxRole?.trim() || undefined,
+    from: input.from?.trim() || undefined,
+    subject: input.subject?.trim() || undefined,
+    unread: input.unread,
+    excludeMailingLists: input.excludeMailingLists,
+    collapseThreads: input.collapseThreads,
+    position: input.position,
+    since: normalizeDateFilter(input.since, "since"),
+    until: normalizeDateFilter(input.until, "until"),
+    limit: input.limit
+  };
+}
+
 async function cachedSearch(accountId: string, input: MessageSearchInput) {
   const account = await getAccount(accountId);
   const cacheKey = `search:${accountId}:${JSON.stringify(input)}`;
@@ -153,8 +196,15 @@ export const handlers = {
       structuredContent: { accounts: config.accounts }
     };
   },
+  async listMailboxes(args: z.infer<typeof toolSchemas.listMailboxes>) {
+    const result = await withBundle(args.accountId, async (_account, bundle) => await bundle.listMailboxes!());
+    return {
+      content: [{ type: "text" as const, text: render(result) }],
+      structuredContent: result
+    };
+  },
   async searchMessages(args: z.infer<typeof toolSchemas.searchMessages>) {
-    const result = await cachedSearch(args.accountId, args);
+    const result = await cachedSearch(args.accountId, normalizeSearchInput(args));
     return {
       content: [{ type: "text" as const, text: render(result) }],
       structuredContent: result
