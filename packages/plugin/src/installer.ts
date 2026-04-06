@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { builtinModules, createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { getMarketplaceRoot, getPluginInstallRoot } from "@iomancer/mail-agent-shared";
@@ -10,6 +11,7 @@ const bundleEntries = [
   ".mcp.json",
   "assets",
   "dist",
+  "package.json",
   "README.md",
   "skills"
 ] as const;
@@ -33,6 +35,11 @@ type Marketplace = {
   }>;
 };
 
+type PackageManifest = {
+  dependencies?: Record<string, string>;
+  optionalDependencies?: Record<string, string>;
+};
+
 async function exists(target: string): Promise<boolean> {
   try {
     await fs.access(target);
@@ -43,18 +50,79 @@ async function exists(target: string): Promise<boolean> {
 }
 
 async function copyTree(source: string, target: string): Promise<void> {
+  await fs.cp(source, target, { recursive: true, force: true, dereference: true });
+}
+
+async function copyPackageDirectory(source: string, target: string): Promise<void> {
   await fs.mkdir(target, { recursive: true });
   const entries = await fs.readdir(source, { withFileTypes: true });
-  for (const entry of entries) {
-    const sourcePath = path.join(source, entry.name);
-    const targetPath = path.join(target, entry.name);
 
-    if (entry.isDirectory()) {
-      await copyTree(sourcePath, targetPath);
+  for (const entry of entries) {
+    if (entry.name === "node_modules") {
       continue;
     }
 
-    await fs.copyFile(sourcePath, targetPath);
+    const sourcePath = path.join(source, entry.name);
+    const targetPath = path.join(target, entry.name);
+    await copyTree(sourcePath, targetPath);
+  }
+}
+
+async function readPackageManifest(packageDir: string): Promise<PackageManifest> {
+  const raw = await fs.readFile(path.join(packageDir, "package.json"), "utf8");
+  return JSON.parse(raw) as PackageManifest;
+}
+
+function getRuntimeDependencyNames(manifest: PackageManifest): string[] {
+  return [...new Set([
+    ...Object.keys(manifest.dependencies ?? {}),
+    ...Object.keys(manifest.optionalDependencies ?? {})
+  ])];
+}
+
+function isBuiltinDependency(packageName: string): boolean {
+  const normalized = packageName.startsWith("node:") ? packageName.slice(5) : packageName;
+  return builtinModules.includes(packageName) || builtinModules.includes(normalized);
+}
+
+async function resolveInstalledPackageDir(sourcePackageDir: string, packageName: string): Promise<string> {
+  const manifestPath = await fs.realpath(path.join(sourcePackageDir, "package.json"));
+  const packageRequire = createRequire(manifestPath);
+  const searchRoots = packageRequire.resolve.paths(packageName) ?? [];
+
+  for (const searchRoot of searchRoots) {
+    const candidate = path.join(searchRoot, ...packageName.split("/"));
+    if (await exists(candidate)) {
+      return candidate;
+    }
+  }
+
+  throw new Error(`Unable to locate installed dependency "${packageName}" from "${sourcePackageDir}"`);
+}
+
+async function copyRuntimeDependencyGraph(
+  sourcePackageDir: string,
+  targetPackageDir: string,
+  seen = new Set<string>()
+): Promise<void> {
+  const manifest = await readPackageManifest(sourcePackageDir);
+
+  for (const dependencyName of getRuntimeDependencyNames(manifest)) {
+    if (isBuiltinDependency(dependencyName)) {
+      continue;
+    }
+
+    const sourceDependencyDir = await resolveInstalledPackageDir(sourcePackageDir, dependencyName);
+    const targetDependencyDir = path.join(targetPackageDir, "node_modules", ...dependencyName.split("/"));
+    const cycleKey = `${await fs.realpath(sourceDependencyDir)}=>${targetDependencyDir}`;
+
+    if (seen.has(cycleKey)) {
+      continue;
+    }
+
+    seen.add(cycleKey);
+    await copyPackageDirectory(sourceDependencyDir, targetDependencyDir);
+    await copyRuntimeDependencyGraph(sourceDependencyDir, targetDependencyDir, seen);
   }
 }
 
@@ -90,6 +158,7 @@ export async function installPluginBundle(): Promise<{ pluginPath: string; marke
       await fs.copyFile(source, destination);
     }
   }
+  await copyRuntimeDependencyGraph(packageRoot, target);
   await fs.mkdir(path.dirname(marketplacePath), { recursive: true });
 
   const marketplace = await readMarketplace(marketplacePath);

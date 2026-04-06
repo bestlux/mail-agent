@@ -27,5 +27,36 @@ describe("installPluginBundle", () => {
 
     expect(marketplace.plugins.some((entry) => entry.name === "mail-agent")).toBe(true);
     await expect(fs.stat(result.pluginPath)).resolves.toBeTruthy();
-  });
+    await expect(fs.stat(path.join(result.pluginPath, "node_modules", "commander", "package.json"))).resolves.toBeTruthy();
+    await expect(
+      fs.stat(path.join(result.pluginPath, "node_modules", "@iomancer", "mail-agent-daemon", "package.json"))
+    ).resolves.toBeTruthy();
+    await expect(
+      fs.stat(
+        path.join(
+          result.pluginPath,
+          "node_modules",
+          "@iomancer",
+          "mail-agent-daemon",
+          "node_modules",
+          "@modelcontextprotocol",
+          "sdk",
+          "package.json"
+        )
+      )
+    ).resolves.toBeTruthy();
+    await expect(
+      fs.stat(
+        path.join(
+          result.pluginPath,
+          "node_modules",
+          "@iomancer",
+          "mail-agent-shared",
+          "node_modules",
+          "keytar",
+          "package.json"
+        )
+      )
+    ).resolves.toBeTruthy();
+  }, 20000);
 });
