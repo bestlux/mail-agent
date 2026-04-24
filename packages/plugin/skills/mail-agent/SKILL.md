@@ -40,6 +40,7 @@ Treat the tool contract as canonical. Providers differ underneath, but the workf
 ## Mutations
 
 - `archive_messages`, `move_messages`, `tag_messages`, and `mark_messages` are normal tools.
+- Use `dryRun: true` first when the user asks for a preview, when message ids came from a broad search, or when the destination/tags/flags need one last check.
 - `send_message` is allowed, but only send when the user clearly wants the message sent.
 - Verify mailbox destinations before moving, especially on Gmail where mailbox-like behavior is label-based.
 - Gmail permanent delete may require broader auth than normal mail actions. If delete fails with a scope message, surface that clearly instead of retrying blindly.
