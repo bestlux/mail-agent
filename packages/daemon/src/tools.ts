@@ -4,6 +4,7 @@ import {
   assertMutationAllowed,
   assertSendAllowed,
   consumeDeleteConfirmation,
+  AuthError,
   getAccount,
   issueDeleteConfirmation,
   loadConfig,
@@ -155,13 +156,46 @@ async function withBundle<T>(
   fn: (account: AccountConfig, bundle: Awaited<ReturnType<typeof createProviderBundle>>) => Promise<T>
 ): Promise<ToolResult<T>> {
   const account = await getAccount(accountId);
-  const bundle = await createProviderBundle(account);
+  let bundle: Awaited<ReturnType<typeof createProviderBundle>>;
+  try {
+    bundle = await createProviderBundle(account);
+  } catch (error) {
+    if (isMissingCredentialsError(error)) {
+      throw new AuthError(`${error.message}. ${authRepairHint(account)}`);
+    }
+
+    throw error;
+  }
   const data = await fn(account, bundle);
   return {
     accountId: account.id,
     provider: account.provider,
     data
   };
+}
+
+function isMissingCredentialsError(error: unknown): error is Error {
+  return error instanceof Error && error.message.startsWith("No credentials stored for account:");
+}
+
+function authRepairHint(account: AccountConfig): string {
+  const repairCommand = repairCommandForAccount(account);
+  if (repairCommand) {
+    return `Run \`${repairCommand}\` to re-authenticate this account.`;
+  }
+
+  return "Run `mail-agent doctor` to inspect account health.";
+}
+
+function repairCommandForAccount(account: AccountConfig): string | undefined {
+  switch (account.provider) {
+    case "google-workspace":
+      return `mail-agent auth google --account ${account.id} --email ${account.emailAddress} --client-id <client-id>`;
+    case "fastmail":
+      return `mail-agent auth fastmail --account ${account.id} --email ${account.emailAddress}`;
+    default:
+      return undefined;
+  }
 }
 
 function render(result: unknown): string {

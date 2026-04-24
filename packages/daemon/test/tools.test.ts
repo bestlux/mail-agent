@@ -14,6 +14,7 @@ const assertSendAllowedMock = vi.fn();
 const createProviderBundleMock = vi.fn();
 const issueDeleteConfirmationMock = vi.fn();
 const requiresDeleteConfirmationMock = vi.fn(() => true);
+const getAccountMock = vi.fn();
 
 const baseMessage = {
   id: "m1",
@@ -47,29 +48,14 @@ class MockFileCache {
 }
 
 vi.mock("@iomancer/mail-agent-shared", () => ({
+  AuthError: class AuthError extends Error {
+    readonly code = "auth_error";
+  },
   FileCache: MockFileCache,
   assertMutationAllowed: assertMutationAllowedMock,
   assertSendAllowed: assertSendAllowedMock,
   consumeDeleteConfirmation: vi.fn(),
-  getAccount: vi.fn(async () => ({
-    id: "personal",
-    provider: "fastmail",
-    displayName: "Personal",
-    emailAddress: "user@example.com",
-    capabilities: ["mail-read"],
-    trustMode: "trusted-automation",
-    automationPolicy: {
-      allowSend: true,
-      allowMutations: true,
-      allowDelete: false
-    },
-    cache: {
-      searchTtlMs: 60_000,
-      threadTtlMs: 60_000,
-      eventTtlMs: 60_000,
-      contactTtlMs: 60_000
-    }
-  })),
+  getAccount: getAccountMock,
   issueDeleteConfirmation: issueDeleteConfirmationMock,
   loadConfig: vi.fn(async () => ({ version: 1, accounts: [] })),
   requiresDeleteConfirmation: requiresDeleteConfirmationMock
@@ -89,6 +75,41 @@ vi.mock("../src/providers/factory.js", () => ({
   }))
 }));
 
+function mockAccount(overrides: Partial<Awaited<ReturnType<typeof getAccountMock>>> = {}) {
+  getAccountMock.mockResolvedValue({
+    id: "personal",
+    provider: "fastmail",
+    displayName: "Personal",
+    emailAddress: "user@example.com",
+    capabilities: ["mail-read"],
+    trustMode: "trusted-automation",
+    automationPolicy: {
+      allowSend: true,
+      allowMutations: true,
+      allowDelete: false
+    },
+    cache: {
+      searchTtlMs: 60_000,
+      threadTtlMs: 60_000,
+      eventTtlMs: 60_000,
+      contactTtlMs: 60_000
+    },
+    ...overrides
+  });
+}
+
+function missingCredentialsError(accountId: string): Error {
+  return Object.assign(new Error(`No credentials stored for account: ${accountId}`), {
+    code: "auth_error"
+  });
+}
+
+function authBackendError(message: string): Error {
+  return Object.assign(new Error(message), {
+    code: "auth_error"
+  });
+}
+
 describe("handlers", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -107,6 +128,8 @@ describe("handlers", () => {
     requiresDeleteConfirmationMock.mockReset();
     requiresDeleteConfirmationMock.mockReturnValue(true);
     createProviderBundleMock.mockClear();
+    getAccountMock.mockReset();
+    mockAccount();
   });
 
   it("bypasses cached search results when refresh is true", async () => {
@@ -377,5 +400,50 @@ describe("handlers", () => {
       }
     });
     expect(deleteMessagesMock).not.toHaveBeenCalled();
+  });
+
+  it("adds a Google auth repair hint when account credentials are missing", async () => {
+    mockAccount({
+      id: "gmail",
+      provider: "google-workspace",
+      displayName: "Gmail",
+      emailAddress: "user@gmail.com"
+    });
+    createProviderBundleMock.mockRejectedValueOnce(missingCredentialsError("gmail"));
+    const { handlers } = await import("../src/tools.js");
+
+    await expect(
+      handlers.searchMessages({
+        accountId: "gmail",
+        limit: 10
+      })
+    ).rejects.toThrow(
+      "No credentials stored for account: gmail. Run `mail-agent auth google --account gmail --email user@gmail.com --client-id <client-id>` to re-authenticate this account."
+    );
+  });
+
+  it("adds a Fastmail auth repair hint when account credentials are missing", async () => {
+    createProviderBundleMock.mockRejectedValueOnce(missingCredentialsError("personal"));
+    const { handlers } = await import("../src/tools.js");
+
+    await expect(
+      handlers.listMailboxes({
+        accountId: "personal"
+      })
+    ).rejects.toThrow(
+      "No credentials stored for account: personal. Run `mail-agent auth fastmail --account personal --email user@example.com` to re-authenticate this account."
+    );
+  });
+
+  it("does not add a re-auth hint for non-missing auth errors", async () => {
+    createProviderBundleMock.mockRejectedValueOnce(authBackendError("OS keychain backend is unavailable: boom"));
+    const { handlers } = await import("../src/tools.js");
+    const result = handlers.listMailboxes({
+      accountId: "personal"
+    });
+
+    await expect(result).rejects.toThrow("OS keychain backend is unavailable: boom");
+
+    await expect(result).rejects.not.toThrow("mail-agent auth fastmail");
   });
 });

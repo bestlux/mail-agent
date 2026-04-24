@@ -10,7 +10,9 @@ export async function runDoctor(): Promise<{
     id: string;
     provider: string;
     emailAddress: string;
-    secretStatus: "ok" | "missing";
+    secretStatus: "ok" | "missing" | "error";
+    repairCommand?: string;
+    secretError?: string;
     deleteSupported?: boolean;
     scopeSummary?: string[];
   }>;
@@ -39,12 +41,23 @@ export async function runDoctor(): Promise<{
           secretStatus: "ok" as const,
           deleteSupported: account.provider !== "fastmail" ? undefined : true
         };
-      } catch {
+      } catch (error) {
+        if (isMissingCredentialsError(error)) {
+          return {
+            id: account.id,
+            provider: account.provider,
+            emailAddress: account.emailAddress,
+            secretStatus: "missing" as const,
+            repairCommand: repairCommandForAccount(account)
+          };
+        }
+
         return {
           id: account.id,
           provider: account.provider,
           emailAddress: account.emailAddress,
-          secretStatus: "missing" as const
+          secretStatus: "error" as const,
+          secretError: error instanceof Error ? error.message : String(error)
         };
       }
     })
@@ -58,4 +71,19 @@ export async function runDoctor(): Promise<{
     secretBackend: process.env.MAIL_AGENT_SECRET_BACKEND ?? "keytar",
     accountStatus
   };
+}
+
+function isMissingCredentialsError(error: unknown): error is Error {
+  return error instanceof Error && error.message.startsWith("No credentials stored for account:");
+}
+
+function repairCommandForAccount(account: Awaited<ReturnType<typeof loadConfig>>["accounts"][number]): string {
+  switch (account.provider) {
+    case "google-workspace":
+      return `mail-agent auth google --account ${account.id} --email ${account.emailAddress} --client-id <client-id>`;
+    case "fastmail":
+      return `mail-agent auth fastmail --account ${account.id} --email ${account.emailAddress}`;
+    default:
+      return "mail-agent doctor";
+  }
 }
