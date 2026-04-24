@@ -1,35 +1,88 @@
 # mail-agent
 
-`mail-agent` is a Codex plugin plus local daemon for email, calendar, and contacts workflows.
+`mail-agent` is a Codex plugin and local MCP daemon for email, calendar, and contacts.
 
-The idea is simple: give Codex structured tools for mail instead of making it pretend a human mail client is an API.
+It gives Codex structured tools for real mailbox workflows: search mail, read threads, draft replies, send when allowed, clean up messages, review calendars, and look up contacts. Credentials stay on your machine.
 
-Right now the repo supports Fastmail and Google. Fastmail uses native protocol access. Google uses OAuth plus the Gmail, Calendar, and People APIs.
+## Quick Start From Source
 
-## What you get
+Requirements:
 
-The repo ships three coordinated pieces:
+- Node `22+`
+- `pnpm` through Corepack
+- Codex with plugins enabled
+- A Fastmail account or Google account
 
-- `mail-agent`: the public CLI and Codex plugin bundle
-- `@iomancer/mail-agent-daemon`: the local MCP daemon that exposes structured tools
-- `@iomancer/mail-agent-shared`: shared runtime, config, policy, and secret-store logic
+Build and install the local plugin:
 
-Most people only care about `mail-agent`. The other two packages exist so the plugin can stay cleanly split between CLI, daemon, and shared runtime code.
+```powershell
+git clone https://github.com/bestlux/mail-agent.git
+cd mail-agent
+corepack pnpm install
+corepack pnpm build
+node packages/plugin/dist/bin/mail-agent.js install
+```
 
-## Current support
+Authenticate one account:
 
-v1 currently supports two providers:
+```powershell
+node packages/plugin/dist/bin/mail-agent.js auth fastmail --account personal --email you@fastmail.com
+```
 
-- Fastmail
-  - mail via `JMAP`
-  - calendar via `CalDAV`
-  - contacts via `CardDAV`
-- Google
-  - mail via the Gmail API
-  - calendar via the Google Calendar API
-  - contacts via the People API
+or:
 
-Across those providers, the daemon exposes the same agent-facing tool surface:
+```powershell
+node packages/plugin/dist/bin/mail-agent.js auth google --account gmail --email you@gmail.com --client-id <client-id>
+```
+
+Check the install:
+
+```powershell
+node packages/plugin/dist/bin/mail-agent.js doctor
+```
+
+`doctor` reports runtime paths, account credential status, Google scopes, delete support, and provider-specific repair commands when credentials are missing.
+
+`install` copies the plugin bundle to `~/.codex/plugins/mail-agent` and registers it through `~/.agents/plugins/marketplace.json`.
+
+## What Codex Gets
+
+After install, Codex can load:
+
+- the `Mail Agent` plugin
+- a local stdio MCP server named `mail-agent`
+- workflow skills:
+  - `mail-agent`
+  - `mail-agent-inbox-triage`
+  - `calendar-brief`
+  - `contacts-lookup`
+
+Useful prompts:
+
+- "Use `mail-agent` to summarize the latest recruiter thread and draft the reply."
+- "Use `mail-agent-inbox-triage` to sort unread inbox mail into urgent, reply soon, waiting, and FYI."
+- "Use `calendar-brief` to summarize my next two days and flag conflicts."
+- "Use `contacts-lookup` to find Jane from Acme and confirm her best email."
+
+## Supported Providers
+
+Fastmail:
+
+- mail through `JMAP`
+- calendars through `CalDAV`
+- contacts through `CardDAV`
+
+Google:
+
+- mail through the Gmail API
+- calendars through the Google Calendar API
+- contacts through the People API
+
+Calendar and contact writes are not supported in v1.
+
+## Tool Surface
+
+Mail:
 
 - `list_mailboxes`
 - `search_messages`
@@ -42,153 +95,110 @@ Across those providers, the daemon exposes the same agent-facing tool surface:
 - `move_messages`
 - `tag_messages`
 - `mark_messages`
-- `delete_messages` with explicit confirmation
+- `delete_messages`
+
+Calendar and contacts:
+
 - `list_calendars`
 - `get_events`
 - `search_contacts`
 - `get_contact`
 
-The tool names are provider-generic on purpose. The adapter layer handles the provider-specific transport and semantics underneath.
+The tool names are provider-neutral. The daemon handles Fastmail and Google differences underneath.
 
-## Why this exists
+## Safety Defaults
 
-Most mailbox integrations for agents land in one of two camps:
+`mail-agent` is designed to be useful without being reckless:
 
-- vendor-specific APIs with weak workflow guidance
-- general-purpose mail clients that were designed for humans, not models
+- message reads return text by default, omit HTML by default, and cap long bodies
+- use `bodyMode: "full"`, `includeHtml: true`, and `maxBodyChars` only when a workflow needs more source body content
+- `send_message` is available only after account auth and policy allow it
+- archive, move, tag, and mark support `dryRun: true` previews before applying provider changes
+- `delete_messages` is always a two-step flow: first request a confirmation token, then repeat with that token only if permanent deletion is still intended
+- calendars and contacts are read-only in v1
 
-`mail-agent` takes a different route:
+For follow-up checks after sends or mutations, use `refresh: true` on search tools to bypass short-lived cache entries.
 
-- structured tool contracts instead of terminal scraping
-- skills that teach Codex how to search, shortlist, summarize, draft, and mutate safely
-- local-first setup so credentials stay on your machine
-- provider-native integrations instead of flattening everything to IMAP first
-- an explicit safety model for sends and destructive actions
+## Fastmail Setup
 
-## Mental model
+Fastmail needs two credentials:
 
-At runtime the flow is:
+1. a `JMAP API token` for mail
+2. an app password for CalDAV/CardDAV calendars and contacts
 
-1. Codex loads the local `Mail Agent` plugin bundle.
-2. The plugin starts a local stdio MCP server named `mail-agent`.
-3. The daemon reads local account config plus secrets from the OS keychain or a file-backed development store.
-4. The daemon talks to the configured provider through native APIs or protocols:
-   - Fastmail: `JMAP`, `CalDAV`, `CardDAV`
-   - Google: Gmail API, Google Calendar API, People API
-5. Skills tell the agent how to use the tools well, not just that the tools exist.
-
-That last point matters. Tools make actions possible. Skills make the agent behave like it has some judgment.
-
-## What Codex sees
-
-After install, Codex sees:
-
-- a plugin called `Mail Agent`
-- a local MCP server called `mail-agent`
-- workflow skills:
-  - `mail-agent`
-  - `mail-agent-inbox-triage`
-  - `calendar-brief`
-  - `contacts-lookup`
-
-Example prompts:
-
-- "Use `mail-agent` to summarize the latest recruiter thread and draft the reply."
-- "Use `mail-agent-inbox-triage` to sort unread inbox mail into urgent, reply soon, waiting, and FYI."
-- "Use `calendar-brief` to summarize my next two days and flag conflicts."
-- "Use `contacts-lookup` to find Jane from Acme and confirm her best email."
-
-## If You Just Want To Run It
+The interactive auth flow prompts for both. You can also pass them directly:
 
 ```powershell
-git clone https://github.com/bestlux/mail-agent.git
-cd mail-agent
-corepack pnpm install
-corepack pnpm build
-node packages/plugin/dist/bin/mail-agent.js install
+node packages/plugin/dist/bin/mail-agent.js auth fastmail `
+  --account personal `
+  --email you@fastmail.com `
+  --jmap-token <token> `
+  --app-password <app-password>
 ```
 
-Then auth whichever account you want first:
+## Google Setup
+
+Google uses installed-app OAuth with a local loopback redirect. The auth flow opens a browser, asks for consent, and stores a refresh token locally.
+
+Before running `auth google`:
+
+1. Create or choose a Google Cloud project.
+2. Configure the OAuth consent screen or Google Auth platform branding.
+3. Set user type to `External`.
+4. Keep the app in `Testing`.
+5. Add your Gmail account under `Test users`.
+6. Enable the Gmail API, Google Calendar API, and People API.
+7. Create an OAuth client with application type `Desktop app`.
+8. Use that client ID with `mail-agent auth google`.
+
+Example:
 
 ```powershell
-node packages/plugin/dist/bin/mail-agent.js auth fastmail --account personal --email you@fastmail.com
+node packages/plugin/dist/bin/mail-agent.js auth google `
+  --account gmail `
+  --email you@gmail.com `
+  --client-id <client-id>
 ```
+
+If browser launch is flaky:
 
 ```powershell
-node packages/plugin/dist/bin/mail-agent.js auth google --account gmail --email you@gmail.com --client-id <client-id>
+node packages/plugin/dist/bin/mail-agent.js auth google `
+  --account gmail `
+  --email you@gmail.com `
+  --client-id <client-id> `
+  --no-open-browser
 ```
 
-If browser launch is flaky on your machine:
+Optional flags:
 
-```powershell
-node packages/plugin/dist/bin/mail-agent.js auth google --account gmail --email you@gmail.com --client-id <client-id> --no-open-browser
-```
+- `--client-secret <secret>` if your Google client includes one
+- `--full-gmail-access` if you want permanent Gmail delete support
+- `--redirect-host 127.0.0.1`
+- `--redirect-port 4567`
 
-Then check the runtime:
+Default Google scopes:
 
-```powershell
-node packages/plugin/dist/bin/mail-agent.js doctor
-```
+- `https://www.googleapis.com/auth/gmail.modify`
+- `https://www.googleapis.com/auth/calendar.readonly`
+- `https://www.googleapis.com/auth/contacts.readonly`
 
-## Requirements
+`--full-gmail-access` swaps the mail scope to `https://mail.google.com/`, which is broader than the default and may be required for permanent Gmail delete.
 
-- Node `22+`
-- `pnpm` via Corepack
-- Codex with plugins enabled
-- At least one supported account:
-  - Fastmail with a `JMAP API token` plus an `app password` for CalDAV/CardDAV
-  - Google with a Google Cloud OAuth desktop client and the Gmail, Calendar, and People APIs enabled
+Google Contacts only searches saved Google Contacts. It does not search everyone you have emailed.
 
-Notes:
+Useful references:
 
-- v1 supports Fastmail credentials directly and Google via OAuth loopback auth.
-- v1 does not support calendar or contact writes.
-- `delete_messages` is always gated, even in trusted mode.
+- [Google OAuth for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app)
+- [Gmail API quickstart for Node.js](https://developers.google.com/workspace/gmail/api/quickstart/nodejs)
+- [Google Calendar API scopes](https://developers.google.com/workspace/calendar/api/auth)
+- [People API contacts guide](https://developers.google.com/people/v1/contacts)
 
-## Install from source
-
-Clone and build the workspace:
-
-```powershell
-git clone https://github.com/bestlux/mail-agent.git
-cd mail-agent
-corepack pnpm install
-corepack pnpm build
-```
-
-Install the local plugin bundle into Codex:
-
-```powershell
-node packages/plugin/dist/bin/mail-agent.js install
-```
-
-Auth a Fastmail account:
-
-```powershell
-node packages/plugin/dist/bin/mail-agent.js auth fastmail --account personal --email you@fastmail.com
-```
-
-Auth a Google account:
-
-```powershell
-node packages/plugin/dist/bin/mail-agent.js auth google --account gmail --email you@gmail.com --client-id <client-id>
-```
-
-Run a health check:
-
-```powershell
-node packages/plugin/dist/bin/mail-agent.js doctor
-```
-
-`doctor` reports runtime paths, secret backend, account credential status, Google scope summaries, delete support, and provider-specific repair commands when credentials are missing.
-
-## Install from npm
+## Install From npm
 
 The public package name is `mail-agent`.
 
-The repo still publishes `@iomancer/mail-agent-daemon` and `@iomancer/mail-agent-shared` alongside it because the CLI is split into a public plugin package plus two internal support packages. Most users should ignore that and just install `mail-agent`.
-
-Once the first npm release is live, the normal install paths will be:
+Once the first npm release is live, the normal install path will be:
 
 ```powershell
 npx mail-agent install
@@ -204,120 +214,9 @@ mail-agent auth google --account gmail --email you@gmail.com --client-id <client
 mail-agent doctor
 ```
 
-## Releases
+The repo also publishes `@iomancer/mail-agent-daemon` and `@iomancer/mail-agent-shared` as support packages. Most users should install only `mail-agent`.
 
-Releases are meant to go out through GitHub Actions, not from somebody's laptop.
-
-The happy path is:
-
-1. Bump the workspace version across the root package plus the three publishable packages.
-2. Push a tag like `v0.2.0`.
-3. Let `.github/workflows/publish.yml` build, test, dry-run, and publish the workspace to npm.
-
-The repo is set up for npm trusted publishing from GitHub Actions. For a brand-new package bootstrap, you can still use an `NPM_TOKEN` repository secret for the first release, then switch to trusted publishers for steady-state releases.
-
-Release details live in [RELEASING.md](./RELEASING.md).
-
-## Fastmail setup
-
-You need two credentials:
-
-1. `JMAP API token`
-2. `app password` for CalDAV/CardDAV
-
-The interactive auth flow prompts for both. You can also pass them non-interactively:
-
-```powershell
-node packages/plugin/dist/bin/mail-agent.js auth fastmail `
-  --account personal `
-  --email you@fastmail.com `
-  --jmap-token <token> `
-  --app-password <app-password>
-```
-
-Fastmail uses two auth surfaces by design:
-
-- mail uses `JMAP` with the API token
-- calendar and contacts use `CalDAV` and `CardDAV` with the app password
-
-## Google setup
-
-Google support uses installed-app OAuth with a local loopback redirect. The flow opens your browser, asks for consent, and stores the resulting refresh token locally so the daemon can refresh access tokens without prompting every run.
-
-Before running `auth google`, set up Google Cloud:
-
-1. Create or choose a Google Cloud project.
-2. Configure the OAuth consent screen or Google Auth platform branding.
-3. Set user type to `External`.
-4. Keep the app in `Testing`.
-5. Add your Gmail account under `Test users`.
-6. Enable the Gmail API, Google Calendar API, and People API.
-7. Create an OAuth client with application type `Desktop app`.
-8. Use that client ID when running `mail-agent auth google`.
-
-For personal Gmail usage, the expected setup is:
-
-- `External` user type
-- `Testing` publishing status
-- your own Gmail added under `Test users`
-- `Desktop app` OAuth client
-
-If your Gmail is not listed as a test user, Google will block the app even if the APIs and client are configured correctly.
-
-Example:
-
-```powershell
-node packages/plugin/dist/bin/mail-agent.js auth google `
-  --account gmail `
-  --email you@gmail.com `
-  --client-id <client-id>
-```
-
-Optional flags:
-
-- `--client-secret <secret>` if your Google client includes one
-- `--full-gmail-access` if you want permanent Gmail delete support
-- `--no-open-browser` if you want to open the OAuth URL yourself
-- `--redirect-host 127.0.0.1`
-- `--redirect-port 4567`
-
-Current default Google scopes:
-
-- `https://www.googleapis.com/auth/gmail.modify`
-- `https://www.googleapis.com/auth/calendar.readonly`
-- `https://www.googleapis.com/auth/contacts.readonly`
-
-If you want Gmail `delete_messages` to permanently delete instead of stopping with a scope error, re-auth with:
-
-```powershell
-node packages/plugin/dist/bin/mail-agent.js auth google `
-  --account gmail `
-  --email you@gmail.com `
-  --client-id <client-id> `
-  --full-gmail-access
-```
-
-That swaps the mail scope to `https://mail.google.com/`, which is broader than the default.
-
-Google Contacts notes:
-
-- `search_contacts` only searches actual Google Contacts data
-- it does not search everyone you have ever emailed
-- an empty result can just mean the person is not saved in Google Contacts
-
-Useful official references:
-
-- [Google OAuth for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app)
-- [Gmail API quickstart for Node.js](https://developers.google.com/workspace/gmail/api/quickstart/nodejs)
-- [Google Calendar API scopes](https://developers.google.com/workspace/calendar/api/auth)
-- [People API contacts guide](https://developers.google.com/people/v1/contacts)
-
-Two practical notes:
-
-- sensitive scopes can trigger the "unverified app" screen during testing
-- the redirect URI used by the loopback flow must exactly match the configured OAuth client redirect
-
-## Runtime and secret storage
+## Runtime And Secrets
 
 Runtime state lives under your OS config directory:
 
@@ -325,62 +224,27 @@ Runtime state lives under your OS config directory:
 - macOS: `~/Library/Application Support/mail-agent`
 - Linux: `$XDG_CONFIG_HOME/mail-agent` or `~/.config/mail-agent`
 
-Secrets default to the OS keychain via `keytar`.
+Secrets default to the OS keychain through `keytar`.
 
-For testing or CI you can force file-backed secrets:
+For development or CI, you can force file-backed secrets:
 
 ```powershell
 $env:MAIL_AGENT_SECRET_BACKEND='file'
 ```
 
-That stores credentials in the runtime directory instead of the OS keychain. Fine for local development and CI. Not ideal for day-to-day use.
+That stores credentials in the runtime directory instead of the OS keychain. It is useful for local tests and CI, but not ideal for day-to-day use.
 
 If your package manager blocks native postinstall scripts, `keytar` may need explicit build approval before the keychain backend works.
 
-Stored secret material depends on the provider:
+## Search Tips
 
-- Fastmail stores `username`, `JMAP` token, and DAV password
-- Google stores the OAuth access token, refresh token, expiry, scopes, and client metadata needed for refresh
+- Use `collapseThreads: true` for broad scans.
+- Use `mailboxRole` before hardcoding mailbox names.
+- Use `excludeMailingLists: true` for person-to-person workflows.
+- `since` and `until` accept RFC3339 timestamps or `YYYY-MM-DD`.
+- Use `list_mailboxes` before mutations, especially on Gmail where labels behave differently from folders.
 
-## Safety model
-
-`mail-agent` is meant to be useful without being reckless.
-
-- `send_message` is available only after account auth and policy allow it
-- message reads default to text only, omit HTML, and cap long bodies
-- full body reads require `bodyMode: "full"`; HTML also requires `includeHtml: true`
-- use `maxBodyChars` when a workflow needs more or less body text than the default cap
-- archive, move, tag, and mark are allowed in trusted mode
-- archive, move, tag, and mark accept `dryRun: true` to preview the mutation without applying it
-- `delete_messages` is always a two-step flow
-- calendar and contacts are read-only in v1
-
-Delete is intentionally explicit:
-
-1. first call requests a confirmation token
-2. second call repeats the delete with that token
-
-That keeps permanent deletion out of the "oops, the agent inferred too much" category.
-
-## Search notes that matter in real use
-
-The search tool is where most real workflows start, so the useful details are worth calling out:
-
-- `collapseThreads: true` keeps broad scans readable
-- `mailboxRole` is better than hardcoded mailbox names when possible
-- `excludeMailingLists: true` helps for person-to-person scans
-- `since` and `until` accept RFC3339 timestamps or `YYYY-MM-DD`
-- `refresh: true` bypasses short-lived cache entries when polling after send or mutation
-
-Provider notes:
-
-- Fastmail exposes real mailboxes
-- Gmail exposes labels plus a pseudo `Archive` mailbox role
-- the tool contract normalizes those differences enough for agents to work reliably, but `list_mailboxes` is still worth using before mutations
-
-Those knobs are there because they make real agent workflows noticeably better.
-
-## Repo layout
+## Repo Layout
 
 ```text
 packages/
@@ -429,34 +293,29 @@ Run the daemon directly:
 node packages/plugin/dist/bin/mail-agent.js daemon
 ```
 
-## Support policy
+## Releases
 
-Supported in v1:
+Releases are meant to go through GitHub Actions.
 
-- Fastmail mail via `JMAP`
-- Fastmail calendars via `CalDAV` read operations
-- Fastmail contacts via `CardDAV` read operations
-- Google mail via Gmail API
-- Google calendars via Google Calendar API read operations
-- Google contacts via People API read operations
+The happy path is:
 
-Not supported in v1:
+1. Bump the workspace version across the root package and three publishable packages.
+2. Push a tag like `v0.2.0`.
+3. Let `.github/workflows/publish.yml` build, test, dry-run, and publish to npm.
 
-- calendar writes
-- contact writes
-- full local mailbox mirroring
-- Microsoft Graph
-- generic IMAP/SMTP or generic CalDAV/CardDAV onboarding as first-class flows
+Release details live in [RELEASING.md](./RELEASING.md).
 
-## Caveats
+## Current Limits
 
-- Fastmail mail auth and DAV auth are separate by design
-- Google OAuth requires a Google Cloud OAuth desktop client
-- Gmail semantics are label-based, so archive and mailbox-like moves are normalized rather than perfectly folder-native
+- no calendar writes
+- no contact writes
+- no full local mailbox mirror
+- no Microsoft Graph support yet
+- no generic IMAP/SMTP or generic CalDAV/CardDAV onboarding as first-class flows
 - contact search is a pragmatic address-book scan, not a server-side indexed search engine
 - event parsing is intentionally lightweight and does not aim to be a full iCalendar implementation yet
 
-## Docs
+## More Docs
 
 - [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [SECURITY.md](./SECURITY.md)
