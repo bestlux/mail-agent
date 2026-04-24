@@ -32,30 +32,11 @@ describe("installPluginBundle", () => {
       fs.stat(path.join(result.pluginPath, "node_modules", "@iomancer", "mail-agent-daemon", "package.json"))
     ).resolves.toBeTruthy();
     await expect(
-      fs.stat(
-        path.join(
-          result.pluginPath,
-          "node_modules",
-          "@iomancer",
-          "mail-agent-daemon",
-          "node_modules",
-          "@modelcontextprotocol",
-          "sdk",
-          "package.json"
-        )
-      )
+      fs.stat(path.join(result.pluginPath, "node_modules", "@modelcontextprotocol", "sdk", "package.json"))
     ).resolves.toBeTruthy();
     await expect(
       fs.stat(
-        path.join(
-          result.pluginPath,
-          "node_modules",
-          "@iomancer",
-          "mail-agent-shared",
-          "node_modules",
-          "keytar",
-          "package.json"
-        )
+        path.join(result.pluginPath, "node_modules", "keytar", "package.json")
       )
     ).resolves.toBeTruthy();
   }, 20000);

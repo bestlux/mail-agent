@@ -102,7 +102,7 @@ async function resolveInstalledPackageDir(sourcePackageDir: string, packageName:
 
 async function copyRuntimeDependencyGraph(
   sourcePackageDir: string,
-  targetPackageDir: string,
+  targetRoot: string,
   seen = new Set<string>()
 ): Promise<void> {
   const manifest = await readPackageManifest(sourcePackageDir);
@@ -113,8 +113,8 @@ async function copyRuntimeDependencyGraph(
     }
 
     const sourceDependencyDir = await resolveInstalledPackageDir(sourcePackageDir, dependencyName);
-    const targetDependencyDir = path.join(targetPackageDir, "node_modules", ...dependencyName.split("/"));
-    const cycleKey = `${await fs.realpath(sourceDependencyDir)}=>${targetDependencyDir}`;
+    const targetDependencyDir = path.join(targetRoot, "node_modules", ...dependencyName.split("/"));
+    const cycleKey = await fs.realpath(sourceDependencyDir);
 
     if (seen.has(cycleKey)) {
       continue;
@@ -122,7 +122,7 @@ async function copyRuntimeDependencyGraph(
 
     seen.add(cycleKey);
     await copyPackageDirectory(sourceDependencyDir, targetDependencyDir);
-    await copyRuntimeDependencyGraph(sourceDependencyDir, targetDependencyDir, seen);
+    await copyRuntimeDependencyGraph(sourceDependencyDir, targetRoot, seen);
   }
 }
 

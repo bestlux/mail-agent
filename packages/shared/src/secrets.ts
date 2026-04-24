@@ -12,6 +12,12 @@ export type SecretStore = {
   remove(accountId: string): Promise<void>;
 };
 
+type KeytarApi = {
+  setPassword(service: string, account: string, password: string): Promise<void>;
+  getPassword(service: string, account: string): Promise<string | null>;
+  deletePassword(service: string, account: string): Promise<boolean>;
+};
+
 class FileSecretStore implements SecretStore {
   private readonly secretFile = path.join(getRuntimeDir(), "secrets.json");
 
@@ -72,9 +78,24 @@ class FileSecretStore implements SecretStore {
 }
 
 class KeytarSecretStore implements SecretStore {
-  private async loadKeytar() {
+  private async loadKeytar(): Promise<KeytarApi> {
     try {
-      return await import("keytar");
+      const keytarModule = await import("keytar");
+      const keytar = ("default" in keytarModule ? keytarModule.default : keytarModule) as {
+        setPassword?: (service: string, account: string, password: string) => Promise<void>;
+        getPassword?: (service: string, account: string) => Promise<string | null>;
+        deletePassword?: (service: string, account: string) => Promise<boolean>;
+      };
+
+      if (
+        typeof keytar.setPassword !== "function" ||
+        typeof keytar.getPassword !== "function" ||
+        typeof keytar.deletePassword !== "function"
+      ) {
+        throw new Error("Loaded keytar module does not expose the expected password API.");
+      }
+
+      return keytar as KeytarApi;
     } catch (error) {
       throw new AuthError(`OS keychain backend is unavailable: ${(error as Error).message}`);
     }
