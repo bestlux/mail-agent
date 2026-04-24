@@ -5,6 +5,12 @@ function asString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+function cleanValues(values: string[] | undefined, excludedValues = new Set<string>()): string[] {
+  return (values ?? [])
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0 && !excludedValues.has(value));
+}
+
 function parseVcard(addressBookId: string, href: string, vcard: string): ContactSummary {
   const lines = vcard.split(/\r?\n/);
   const values = new Map<string, string[]>();
@@ -21,13 +27,15 @@ function parseVcard(addressBookId: string, href: string, vcard: string): Contact
     values.set(key, current);
   }
 
+  const fullName = values.get("FN")?.[0]?.trim();
+
   return {
     id: values.get("UID")?.[0] ?? href,
     addressBookId,
-    fullName: values.get("FN")?.[0] ?? "(unnamed)",
-    emails: values.get("EMAIL") ?? [],
-    phones: values.get("TEL") ?? [],
-    organizations: values.get("ORG") ?? []
+    fullName: fullName && fullName.length > 0 ? fullName : "(unnamed)",
+    emails: cleanValues(values.get("EMAIL")),
+    phones: cleanValues(values.get("TEL")),
+    organizations: cleanValues(values.get("ORG"), new Set([";"]))
   };
 }
 

@@ -9,6 +9,16 @@ function isForbiddenDavError(error: unknown): boolean {
   return error instanceof Error && /\b403\b/.test(error.message);
 }
 
+function normalizeSimpleUtcDateTime(value: string): string {
+  const match = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/.exec(value);
+  if (!match) {
+    return value;
+  }
+
+  const [, year, month, day, hour, minute, second] = match;
+  return `${year}-${month}-${day}T${hour}:${minute}:${second}Z`;
+}
+
 function parseIcsEvents(calendarId: string, calendarName: string, ics: string): EventSummary[] {
   const chunks = ics.split("BEGIN:VEVENT").slice(1);
   return chunks.map((chunk, index) => {
@@ -31,8 +41,8 @@ function parseIcsEvents(calendarId: string, calendarName: string, ics: string): 
       calendarId,
       calendarName,
       title: map.get("SUMMARY") ?? "(untitled)",
-      start: map.get("DTSTART") ?? "",
-      end: map.get("DTEND") ?? "",
+      start: normalizeSimpleUtcDateTime(map.get("DTSTART") ?? ""),
+      end: normalizeSimpleUtcDateTime(map.get("DTEND") ?? ""),
       location: map.get("LOCATION"),
       description: map.get("DESCRIPTION")
     };
