@@ -101,6 +101,14 @@ export type MessageSummary = {
   mailboxNames: string[];
 };
 
+export type MessageBodyMode = "metadata" | "text" | "full";
+
+export type MessageReadOptions = {
+  bodyMode?: MessageBodyMode;
+  maxBodyChars?: number;
+  includeHtml?: boolean;
+};
+
 export type MailboxSummary = {
   id: string;
   name: string;
@@ -112,6 +120,9 @@ export type MessageDetail = MessageSummary & {
   bcc: string[];
   textBody: string;
   htmlBody?: string;
+  bodyTruncated?: boolean;
+  originalTextBodyChars?: number;
+  originalHtmlBodyChars?: number;
   messageIdHeader?: string;
   references: string[];
   replyTo?: string[];

@@ -27,13 +27,13 @@ export function createServer(): McpServer {
 
   server.registerTool("read_message_batch", {
     title: "Read message batch",
-    description: "Fetch full details for a batch of messages.",
+    description: "Fetch message details for a batch. Defaults are agent-safe: text body only, capped at 8000 characters, with HTML omitted. Use bodyMode \"metadata\" for headers only, or bodyMode \"full\" with includeHtml true and maxBodyChars when full/html body content is needed.",
     inputSchema: toolSchemas.readMessageBatch.shape
   }, handlers.readMessageBatch as never);
 
   server.registerTool("read_thread", {
     title: "Read thread",
-    description: "Fetch all messages from a thread.",
+    description: "Fetch all messages from a thread. Defaults are agent-safe: text body only, capped at 8000 characters, with HTML omitted. Use bodyMode \"metadata\" for headers only, or bodyMode \"full\" with includeHtml true and maxBodyChars when full/html body content is needed.",
     inputSchema: toolSchemas.readThread.shape
   }, handlers.readThread as never);
 

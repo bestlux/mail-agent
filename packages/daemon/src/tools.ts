@@ -10,6 +10,7 @@ import {
   requiresDeleteConfirmation,
   type AccountConfig,
   type DraftMessage,
+  type MessageDetail,
   type MessageSearchInput,
   type ToolResult
 } from "@iomancer/mail-agent-shared";
@@ -18,6 +19,24 @@ import { createProviderBundle } from "./providers/factory.js";
 const cache = new FileCache();
 
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+const defaultBodyMode = "text" as const;
+const defaultMaxBodyChars = 8_000;
+const bodyModeSchema = z.enum(["metadata", "text", "full"]);
+const messageReadOptionSchema = {
+  bodyMode: bodyModeSchema.optional(),
+  maxBodyChars: z.number().int().min(500).max(100_000).optional(),
+  includeHtml: z.boolean().optional()
+};
+type MessageReadArgs = {
+  bodyMode?: z.infer<typeof bodyModeSchema>;
+  maxBodyChars?: number;
+  includeHtml?: boolean;
+};
+type ShapedMessageDetail = MessageDetail & {
+  bodyTruncated?: boolean;
+  originalTextBodyChars?: number;
+  originalHtmlBodyChars?: number;
+};
 
 export const toolSchemas = {
   accountOnly: z.object({
@@ -44,11 +63,13 @@ export const toolSchemas = {
   }),
   readMessageBatch: z.object({
     accountId: z.string().min(1),
-    messageIds: z.array(z.string()).min(1)
+    messageIds: z.array(z.string()).min(1),
+    ...messageReadOptionSchema
   }),
   readThread: z.object({
     accountId: z.string().min(1),
-    threadId: z.string().min(1)
+    threadId: z.string().min(1),
+    ...messageReadOptionSchema
   }),
   composeMessage: z.object({
     accountId: z.string().min(1),
@@ -176,6 +197,64 @@ function normalizeSearchInput(input: z.infer<typeof toolSchemas.searchMessages>)
   };
 }
 
+function truncationMarker(originalChars: number, maxBodyChars: number): string {
+  return `\n\n[mail-agent: body truncated from ${originalChars} to ${maxBodyChars} characters. Increase maxBodyChars to read more.]`;
+}
+
+function shapeBody(value: string | undefined, maxBodyChars: number): { value?: string; originalChars?: number; truncated: boolean } {
+  if (value === undefined) {
+    return { truncated: false };
+  }
+
+  const originalChars = value.length;
+  if (originalChars <= maxBodyChars) {
+    return { value, originalChars, truncated: false };
+  }
+
+  return {
+    value: `${value.slice(0, maxBodyChars)}${truncationMarker(originalChars, maxBodyChars)}`,
+    originalChars,
+    truncated: true
+  };
+}
+
+function shapeMessageDetail(message: MessageDetail, options: MessageReadArgs): ShapedMessageDetail {
+  const bodyMode = options.bodyMode ?? defaultBodyMode;
+  const maxBodyChars = options.maxBodyChars ?? defaultMaxBodyChars;
+  const originalTextBodyChars = message.textBody.length;
+  const originalHtmlBodyChars = message.htmlBody?.length;
+
+  if (bodyMode === "metadata") {
+    const { htmlBody: _htmlBody, ...metadata } = message;
+    return {
+      ...metadata,
+      textBody: "",
+      bodyTruncated: originalTextBodyChars > 0 || (originalHtmlBodyChars ?? 0) > 0,
+      originalTextBodyChars,
+      ...(originalHtmlBodyChars !== undefined ? { originalHtmlBodyChars } : {})
+    };
+  }
+
+  const text = shapeBody(message.textBody, maxBodyChars);
+  const shouldIncludeHtml = bodyMode === "full" && options.includeHtml === true;
+  const html = shouldIncludeHtml ? shapeBody(message.htmlBody, maxBodyChars) : { truncated: false };
+  const { htmlBody: _htmlBody, ...base } = message;
+  const bodyTruncated = text.truncated || html.truncated;
+
+  return {
+    ...base,
+    textBody: text.value ?? "",
+    ...(shouldIncludeHtml && html.value !== undefined ? { htmlBody: html.value } : {}),
+    ...(bodyTruncated ? { bodyTruncated: true } : {}),
+    originalTextBodyChars,
+    ...(originalHtmlBodyChars !== undefined ? { originalHtmlBodyChars } : {})
+  };
+}
+
+function shapeMessageDetails(messages: MessageDetail[], options: MessageReadArgs): ShapedMessageDetail[] {
+  return messages.map((message) => shapeMessageDetail(message, options));
+}
+
 async function cachedSearch(accountId: string, input: MessageSearchInput, options?: { bypassCache?: boolean }) {
   const account = await getAccount(accountId);
   const cacheKey = `search:${accountId}:${JSON.stringify(input)}`;
@@ -214,14 +293,20 @@ export const handlers = {
     };
   },
   async readMessageBatch(args: z.infer<typeof toolSchemas.readMessageBatch>) {
-    const result = await withBundle(args.accountId, async (_account, bundle) => await bundle.readMessageBatch!(args.messageIds));
+    const result = await withBundle(args.accountId, async (_account, bundle) => {
+      const messages = await bundle.readMessageBatch!(args.messageIds);
+      return shapeMessageDetails(messages, args);
+    });
     return {
       content: [{ type: "text" as const, text: render(result) }],
       structuredContent: result
     };
   },
   async readThread(args: z.infer<typeof toolSchemas.readThread>) {
-    const result = await withBundle(args.accountId, async (_account, bundle) => await bundle.readThread!(args.threadId));
+    const result = await withBundle(args.accountId, async (_account, bundle) => {
+      const messages = await bundle.readThread!(args.threadId);
+      return shapeMessageDetails(messages, args);
+    });
     return {
       content: [{ type: "text" as const, text: render(result) }],
       structuredContent: result
