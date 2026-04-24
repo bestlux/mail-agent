@@ -45,7 +45,7 @@ export function createServer(): McpServer {
 
   server.registerTool("draft_reply", {
     title: "Draft reply",
-    description: "Create a reply draft from an existing message.",
+    description: "Prepare a reply envelope and quoted context from an existing message. Optional instructions are used as draft body text above the quote; this tool does not generate reply prose.",
     inputSchema: toolSchemas.draftReply.shape
   }, handlers.draftReply as never);
 

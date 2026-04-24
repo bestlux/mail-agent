@@ -156,6 +156,7 @@ describe("Google adapters", () => {
             headers: [
               { name: "Subject", value: "Hello" },
               { name: "From", value: "sender@example.com" },
+              { name: "Reply-To", value: "reply-to@example.com" },
               { name: "To", value: "user@gmail.com" },
               { name: "Message-ID", value: "<current@example.com>" },
               { name: "References", value: "<root@example.com>" }
@@ -182,9 +183,47 @@ describe("Google adapters", () => {
     const adapter = new GoogleMailAdapter(account, auth);
     const draft = await adapter.draftReply("m1", "Thanks.");
 
+    expect(draft.to).toEqual(["reply-to@example.com"]);
+    expect(draft.subject).toBe("Re: Hello");
+    expect(draft.textBody).toBe("Thanks.\n\nOn 2026-03-31T00:00:00.000Z, sender@example.com wrote:\n> Hello world");
     expect(draft.inReplyTo).toBe("<current@example.com>");
     expect(draft.references).toEqual(["<root@example.com>", "<current@example.com>"]);
     expect(draft.threadId).toBe("t1");
+  });
+
+  it("drafts replies without duplicate reply subjects or generated body text", async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: "m1",
+          threadId: "t1",
+          labelIds: ["INBOX"],
+          snippet: "Preview context",
+          internalDate: `${Date.parse("2026-03-31T00:00:00Z")}`,
+          payload: {
+            headers: [
+              { name: "Subject", value: "Re: Hello" },
+              { name: "From", value: "sender@example.com" },
+              { name: "To", value: "user@gmail.com" },
+              { name: "Message-ID", value: "<current@example.com>" }
+            ]
+          }
+        })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          labels: [{ id: "INBOX", name: "INBOX", type: "system" }]
+        })
+      });
+
+    const adapter = new GoogleMailAdapter(account, auth);
+    const draft = await adapter.draftReply("m1");
+
+    expect(draft.to).toEqual(["sender@example.com"]);
+    expect(draft.subject).toBe("Re: Hello");
+    expect(draft.textBody).toBe("On 2026-03-31T00:00:00.000Z, sender@example.com wrote:\n> Preview context");
   });
 
   it("keeps paginating when excludeMailingLists filters the first page away", async () => {

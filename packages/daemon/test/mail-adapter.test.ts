@@ -317,6 +317,141 @@ describe("FastmailMailAdapter", () => {
     expect(message?.textBody).toBe("Hello world");
   });
 
+  it("drafts replies with supplied body text above a quoted original", async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          apiUrl: "https://api.fastmail.com/jmap/api/",
+          primaryAccounts: {
+            "urn:ietf:params:jmap:mail": "acct",
+            "urn:ietf:params:jmap:submission": "acct"
+          }
+        })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          methodResponses: [["Mailbox/query", { ids: ["mb-inbox"] }, "0"]]
+        })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          methodResponses: [["Mailbox/get", { list: [{ id: "mb-inbox", name: "Inbox", role: "inbox" }] }, "0"]]
+        })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          methodResponses: [[
+            "Email/get",
+            {
+              list: [
+                {
+                  id: "m1",
+                  threadId: "t1",
+                  mailboxIds: { "mb-inbox": true },
+                  subject: "Re: Project update",
+                  from: [{ email: "sender@example.com" }],
+                  replyTo: [{ email: "reply-to@example.com" }],
+                  to: [{ email: "user@example.com" }],
+                  receivedAt: "2026-03-30T00:00:00Z",
+                  messageId: ["<current@example.com>"],
+                  references: ["<root@example.com>"],
+                  bodyValues: {
+                    text: { value: "Line one\nLine two" }
+                  },
+                  textBody: [{ partId: "text" }]
+                }
+              ]
+            },
+            "0"
+          ]]
+        })
+      });
+
+    const adapter = new FastmailMailAdapter(account, {
+      kind: "fastmail-basic",
+      username: "user@example.com",
+      jmapAccessToken: "token",
+      davPassword: "app-password"
+    });
+
+    const draft = await adapter.draftReply("m1", "  Thanks, I'll take a look.  ");
+
+    expect(draft.to).toEqual(["reply-to@example.com"]);
+    expect(draft.subject).toBe("Re: Project update");
+    expect(draft.textBody).toBe("Thanks, I'll take a look.\n\n> Line one\n> Line two");
+    expect(draft.inReplyTo).toBe("<current@example.com>");
+    expect(draft.references).toEqual(["<root@example.com>", "<current@example.com>"]);
+  });
+
+  it("drafts replies without instructions using only quoted original context", async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          apiUrl: "https://api.fastmail.com/jmap/api/",
+          primaryAccounts: {
+            "urn:ietf:params:jmap:mail": "acct",
+            "urn:ietf:params:jmap:submission": "acct"
+          }
+        })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          methodResponses: [["Mailbox/query", { ids: ["mb-inbox"] }, "0"]]
+        })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          methodResponses: [["Mailbox/get", { list: [{ id: "mb-inbox", name: "Inbox", role: "inbox" }] }, "0"]]
+        })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          methodResponses: [[
+            "Email/get",
+            {
+              list: [
+                {
+                  id: "m1",
+                  threadId: "t1",
+                  mailboxIds: { "mb-inbox": true },
+                  subject: "Subject",
+                  from: [{ email: "sender@example.com" }],
+                  to: [{ email: "user@example.com" }],
+                  receivedAt: "2026-03-30T00:00:00Z",
+                  preview: "Preview-only context",
+                  bodyValues: {},
+                  textBody: []
+                }
+              ]
+            },
+            "0"
+          ]]
+        })
+      });
+
+    const adapter = new FastmailMailAdapter(account, {
+      kind: "fastmail-basic",
+      username: "user@example.com",
+      jmapAccessToken: "token",
+      davPassword: "app-password"
+    });
+
+    const draft = await adapter.draftReply("m1");
+
+    expect(draft.subject).toBe("Re: Subject");
+    expect(draft.textBody).toBe("> Preview-only context");
+    expect(draft.inReplyTo).toBeUndefined();
+    expect(draft.references).toEqual([]);
+  });
+
   it("archives messages by moving them into the archive mailbox", async () => {
     fetchMock
       .mockResolvedValueOnce({

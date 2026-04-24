@@ -137,6 +137,7 @@ function messageDetail(email: RawEmail, mailboxMap: Map<string, MailboxInfo>): M
     bcc: emailList(email.bcc),
     textBody: firstTextBody(email),
     htmlBody: firstHtmlBody(email),
+    messageIdHeader: asArray(email.messageId as string[])[0],
     references: asArray(email.references as string[]),
     replyTo: emailList(email.replyTo)
   };
@@ -324,6 +325,7 @@ export class FastmailMailAdapter {
         "receivedAt",
         "sentAt",
         "preview",
+        "messageId",
         "references",
         "bodyValues",
         "textBody",
@@ -413,17 +415,24 @@ export class FastmailMailAdapter {
     }
     const replyTo = message.replyTo && message.replyTo.length > 0 ? message.replyTo : message.from;
     const subject = message.subject.toLowerCase().startsWith("re:") ? message.subject : `Re: ${message.subject}`;
-    const quoted = message.textBody
+    const draftBody = instructions?.trim() ?? "";
+    const originalContext = message.textBody || message.preview || "";
+    const quoted = originalContext
       .split(/\r?\n/)
       .map((line) => `> ${line}`)
-      .join("\n");
+      .join("\n")
+      .trim();
+    const references = [...message.references];
+    if (message.messageIdHeader && references.at(-1) !== message.messageIdHeader) {
+      references.push(message.messageIdHeader);
+    }
 
     return {
       to: replyTo,
       subject,
-      textBody: `${instructions?.trim() ?? ""}${instructions ? "\n\n" : ""}${quoted}`.trim(),
-      inReplyTo: messageId,
-      references: message.references.length > 0 ? message.references : [messageId],
+      textBody: draftBody ? `${draftBody}\n\n${quoted}` : quoted,
+      ...(message.messageIdHeader ? { inReplyTo: message.messageIdHeader } : {}),
+      references,
       threadId: message.threadId
     };
   }
