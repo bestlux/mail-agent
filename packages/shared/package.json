@@ -28,7 +28,7 @@
     "url": "https://github.com/bestlux/mail-agent/issues"
   },
   "dependencies": {
-    "fast-xml-parser": "5.7.1",
+    "fast-xml-parser": "5.7.2",
     "keytar": "7.9.0",
     "zod": "4.3.6"
   },
